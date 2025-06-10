@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -191,27 +190,40 @@ export const PianoKeyboard = () => {
         </div>
       </div>
 
-      {/* Piano Keyboard */}
-      <div className="relative w-full overflow-x-auto">
-        <div className="relative min-w-full" style={{ minWidth: '800px' }}>
+      {/* Realistic Piano Keyboard */}
+      <div className="relative w-full overflow-hidden bg-gray-900 p-2 rounded-lg shadow-2xl">
+        <style jsx>{`
+          :root {
+            --white-key-width: calc(100vw / 21 - 2px);
+            --black-key-width: calc(var(--white-key-width) * 0.6);
+            --white-key-height: max(20vh, 180px);
+            --black-key-height: calc(var(--white-key-height) * 0.6);
+          }
+        `}</style>
+        
+        <div className="relative w-full" style={{ height: 'max(20vh, 180px)' }}>
           {/* White Keys */}
-          <div className="flex relative">
+          <div className="flex w-full h-full">
             {whiteKeys.map((note, index) => (
               <button
                 key={note.name}
-                className={`flex-1 h-32 bg-white border-2 border-gray-300 transition-all duration-75 relative ${
+                className={`relative h-full transition-all duration-100 ease-out touch-manipulation select-none ${
                   isPlaying === note.name
-                    ? 'bg-gray-200 transform scale-95'
-                    : 'hover:bg-gray-50 active:bg-gray-200'
-                }`}
-                style={{ minWidth: '40px' }}
+                    ? 'bg-gradient-to-b from-gray-200 via-gray-300 to-gray-100 transform translate-y-1 shadow-inner'
+                    : 'bg-gradient-to-b from-white via-gray-50 to-gray-100 hover:from-gray-50 hover:via-gray-100 hover:to-gray-200 shadow-lg hover:shadow-xl'
+                } border-r border-gray-300 rounded-b-md`}
+                style={{
+                  width: 'calc(100vw / 21 - 2px)',
+                  minWidth: '44px',
+                  borderLeft: index === 0 ? '1px solid #d1d5db' : 'none'
+                }}
                 onMouseDown={() => playNote(note.frequency, note.name)}
                 onTouchStart={(e) => {
                   e.preventDefault();
                   playNote(note.frequency, note.name);
                 }}
               >
-                <span className="absolute bottom-2 left-1/2 transform -translate-x-1/2 text-xs text-gray-600">
+                <span className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 font-medium pointer-events-none">
                   {note.name.replace(/\d/, '')}
                 </span>
               </button>
@@ -219,36 +231,50 @@ export const PianoKeyboard = () => {
           </div>
 
           {/* Black Keys */}
-          <div className="absolute top-0 left-0 flex">
+          <div className="absolute top-0 left-0 flex w-full h-full pointer-events-none">
             {whiteKeys.map((whiteNote, whiteIndex) => {
-              // Find if there's a black key after this white key
               const noteWithoutOctave = whiteNote.name.replace(/\d/, '');
               const hasBlackKeyAfter = ['C', 'D', 'F', 'G', 'A'].includes(noteWithoutOctave);
               
               if (!hasBlackKeyAfter) {
-                return <div key={whiteNote.name} className="flex-1" style={{ minWidth: '40px' }} />;
+                return (
+                  <div 
+                    key={whiteNote.name} 
+                    style={{ width: 'calc(100vw / 21 - 2px)', minWidth: '44px' }}
+                  />
+                );
               }
 
-              // Find the corresponding black key
               const blackKeyName = noteWithoutOctave + '#' + whiteNote.name.match(/\d/)?.[0];
               const blackKey = blackKeys.find(key => key.name === blackKeyName);
 
               return (
-                <div key={whiteNote.name} className="flex-1 relative" style={{ minWidth: '40px' }}>
+                <div 
+                  key={whiteNote.name} 
+                  className="relative"
+                  style={{ width: 'calc(100vw / 21 - 2px)', minWidth: '44px' }}
+                >
                   {blackKey && (
                     <button
-                      className={`absolute top-0 right-0 w-6 h-20 bg-gray-800 text-white border border-gray-600 transform translate-x-1/2 z-10 transition-all duration-75 ${
+                      className={`absolute top-0 z-10 transition-all duration-100 ease-out touch-manipulation select-none pointer-events-auto ${
                         isPlaying === blackKey.name
-                          ? 'bg-gray-600 scale-95'
-                          : 'hover:bg-gray-700 active:bg-gray-600'
-                      }`}
+                          ? 'bg-gradient-to-b from-gray-700 via-gray-800 to-gray-600 transform translate-y-1 shadow-inner'
+                          : 'bg-gradient-to-b from-gray-800 via-gray-900 to-black hover:from-gray-700 hover:via-gray-800 hover:to-gray-900 shadow-xl hover:shadow-2xl'
+                      } rounded-b-md border border-gray-600`}
+                      style={{
+                        width: 'calc((100vw / 21 - 2px) * 0.6)',
+                        height: 'calc(max(20vh, 180px) * 0.6)',
+                        minWidth: '26px',
+                        left: 'calc(50% + (100vw / 21 - 2px) * 0.2)',
+                        transform: 'translateX(-50%)'
+                      }}
                       onMouseDown={() => playNote(blackKey.frequency, blackKey.name)}
                       onTouchStart={(e) => {
                         e.preventDefault();
                         playNote(blackKey.frequency, blackKey.name);
                       }}
                     >
-                      <span className="absolute bottom-2 left-1/2 transform -translate-x-1/2 text-xs">
+                      <span className="absolute bottom-3 left-1/2 transform -translate-x-1/2 text-xs text-white font-medium pointer-events-none">
                         {blackKey.name.replace(/\d/, '')}
                       </span>
                     </button>
@@ -260,7 +286,7 @@ export const PianoKeyboard = () => {
         </div>
       </div>
 
-      <div className="text-center text-sm text-gray-600">
+      <div className="text-center text-sm text-muted-foreground">
         <p>Tap or click the keys to play notes</p>
         <p className="mt-1">Current instrument: {instruments[selectedInstrument].name}</p>
       </div>
