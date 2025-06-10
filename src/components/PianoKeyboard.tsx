@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -75,6 +76,7 @@ export const PianoKeyboard = () => {
 
   const keyboardRef = useRef<HTMLDivElement | null>(null);
   const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
   const isDragging = useRef(false);
 
   // Generate notes for current octave plus adjacent octaves for smooth transition
@@ -106,29 +108,38 @@ export const PianoKeyboard = () => {
   const currentOctaveNotes = notes.slice(12, 24); // Middle octave
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    e.stopPropagation();
     touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
     isDragging.current = false;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (touchStartX.current === null) return;
+    if (touchStartX.current === null || touchStartY.current === null) return;
     
     const touchX = e.touches[0].clientX;
+    const touchY = e.touches[0].clientY;
     const deltaX = touchX - touchStartX.current;
+    const deltaY = touchY - touchStartY.current;
     
-    // Prevent scrolling while swiping
-    if (Math.abs(deltaX) > 10) {
+    // Only consider it a swipe if horizontal movement is greater than vertical
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 20) {
       e.preventDefault();
       isDragging.current = true;
     }
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null || !isDragging.current) return;
+    if (touchStartX.current === null || !isDragging.current) {
+      touchStartX.current = null;
+      touchStartY.current = null;
+      isDragging.current = false;
+      return;
+    }
     
     const touchX = e.changedTouches[0].clientX;
     const deltaX = touchX - touchStartX.current;
-    const threshold = 50;
+    const threshold = 80;
     
     if (Math.abs(deltaX) > threshold) {
       if (deltaX > 0 && currentOctave > 1) {
@@ -141,6 +152,7 @@ export const PianoKeyboard = () => {
     }
     
     touchStartX.current = null;
+    touchStartY.current = null;
     isDragging.current = false;
   };
 
@@ -285,10 +297,11 @@ export const PianoKeyboard = () => {
       {/* Realistic Piano Keyboard */}
       <div 
         ref={keyboardRef}
-        className="relative w-full overflow-hidden bg-gray-900 p-2 rounded-lg shadow-2xl select-none"
+        className="relative w-full overflow-hidden bg-gray-900 p-2 rounded-lg shadow-2xl select-none touch-pan-y"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        style={{ touchAction: 'pan-y' }}
       >
         <style>{`
           .piano-container {
@@ -318,6 +331,7 @@ export const PianoKeyboard = () => {
                 onTouchStart={(e) => {
                   if (!isDragging.current) {
                     e.preventDefault();
+                    e.stopPropagation();
                     playNote(note.frequency, note.name);
                   }
                 }}
@@ -370,6 +384,7 @@ export const PianoKeyboard = () => {
                       onTouchStart={(e) => {
                         if (!isDragging.current) {
                           e.preventDefault();
+                          e.stopPropagation();
                           playNote(blackKey.frequency, blackKey.name);
                         }
                       }}
