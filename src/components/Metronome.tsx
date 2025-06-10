@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Play, Pause, Volume2 } from 'lucide-react';
 
 export const Metronome = () => {
@@ -9,6 +10,7 @@ export const Metronome = () => {
   const [bpm, setBpm] = useState(120);
   const [currentBeat, setCurrentBeat] = useState(0);
   const [timeSignature, setTimeSignature] = useState(4);
+  const [meterSignature, setMeterSignature] = useState(4); // Bottom number of time signature
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
@@ -47,7 +49,10 @@ export const Metronome = () => {
   const startMetronome = () => {
     if (intervalRef.current) return;
 
-    const interval = 60000 / bpm;
+    // Calculate interval based on meter signature (note value)
+    const noteValue = 4 / meterSignature; // quarter note = 1, eighth note = 0.5, etc.
+    const interval = (60000 / bpm) * noteValue;
+    
     intervalRef.current = setInterval(() => {
       setCurrentBeat((prev) => {
         const nextBeat = (prev % timeSignature) + 1;
@@ -79,7 +84,7 @@ export const Metronome = () => {
       stopMetronome();
       startMetronome();
     }
-  }, [bpm, timeSignature]);
+  }, [bpm, timeSignature, meterSignature]);
 
   useEffect(() => {
     return () => {
@@ -89,6 +94,10 @@ export const Metronome = () => {
     };
   }, []);
 
+  const getTimeSignatureDisplay = () => {
+    return `${timeSignature}/${meterSignature}`;
+  };
+
   return (
     <div className="w-full max-w-md mx-auto space-y-6">
       <div className="text-center">
@@ -96,6 +105,9 @@ export const Metronome = () => {
           {bpm}
         </div>
         <div className="text-lg text-gray-600 mb-2">BPM</div>
+        <div className="text-2xl font-semibold text-gray-700">
+          {getTimeSignatureDisplay()}
+        </div>
       </div>
 
       <div className="space-y-4">
@@ -119,18 +131,43 @@ export const Metronome = () => {
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-2">Time Signature</label>
-          <select
-            value={timeSignature}
-            onChange={(e) => setTimeSignature(parseInt(e.target.value))}
-            className="w-full p-2 border border-gray-300 rounded-md"
-          >
-            <option value="2">2/4</option>
-            <option value="3">3/4</option>
-            <option value="4">4/4</option>
-            <option value="6">6/8</option>
-          </select>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Beats per Measure</label>
+            <Select value={timeSignature.toString()} onValueChange={(value) => setTimeSignature(parseInt(value))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">1</SelectItem>
+                <SelectItem value="2">2</SelectItem>
+                <SelectItem value="3">3</SelectItem>
+                <SelectItem value="4">4</SelectItem>
+                <SelectItem value="5">5</SelectItem>
+                <SelectItem value="6">6</SelectItem>
+                <SelectItem value="7">7</SelectItem>
+                <SelectItem value="8">8</SelectItem>
+                <SelectItem value="9">9</SelectItem>
+                <SelectItem value="12">12</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Note Value</label>
+            <Select value={meterSignature.toString()} onValueChange={(value) => setMeterSignature(parseInt(value))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Whole (1)</SelectItem>
+                <SelectItem value="2">Half (2)</SelectItem>
+                <SelectItem value="4">Quarter (4)</SelectItem>
+                <SelectItem value="8">Eighth (8)</SelectItem>
+                <SelectItem value="16">Sixteenth (16)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
@@ -164,6 +201,7 @@ export const Metronome = () => {
       <div className="text-center text-sm text-gray-600">
         <p>Red circle = Strong beat (downbeat)</p>
         <p>Blue circle = Regular beat</p>
+        <p className="mt-2 font-medium">Time Signature: {getTimeSignatureDisplay()}</p>
       </div>
     </div>
   );

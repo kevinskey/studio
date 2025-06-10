@@ -192,29 +192,28 @@ export const PianoKeyboard = () => {
 
       {/* Realistic Piano Keyboard */}
       <div className="relative w-full overflow-hidden bg-gray-900 p-2 rounded-lg shadow-2xl">
-        <style jsx>{`
-          :root {
-            --white-key-width: calc(100vw / 21 - 2px);
+        <style>{`
+          .piano-container {
+            --white-key-width: max(calc(100vw / 21 - 4px), 44px);
             --black-key-width: calc(var(--white-key-width) * 0.6);
-            --white-key-height: max(20vh, 180px);
+            --white-key-height: max(calc(var(--white-key-width) * 6), 200px);
             --black-key-height: calc(var(--white-key-height) * 0.6);
           }
         `}</style>
         
-        <div className="relative w-full" style={{ height: 'max(20vh, 180px)' }}>
+        <div className="piano-container relative w-full" style={{ height: 'max(calc(max(calc(100vw / 21 - 4px), 44px) * 6), 200px)' }}>
           {/* White Keys */}
           <div className="flex w-full h-full">
             {whiteKeys.map((note, index) => (
               <button
                 key={note.name}
-                className={`relative h-full transition-all duration-100 ease-out touch-manipulation select-none ${
+                className={`relative h-full transition-all duration-150 ease-out touch-manipulation select-none ${
                   isPlaying === note.name
                     ? 'bg-gradient-to-b from-gray-200 via-gray-300 to-gray-100 transform translate-y-1 shadow-inner'
                     : 'bg-gradient-to-b from-white via-gray-50 to-gray-100 hover:from-gray-50 hover:via-gray-100 hover:to-gray-200 shadow-lg hover:shadow-xl'
                 } border-r border-gray-300 rounded-b-md`}
                 style={{
-                  width: 'calc(100vw / 21 - 2px)',
-                  minWidth: '44px',
+                  width: 'var(--white-key-width)',
                   borderLeft: index === 0 ? '1px solid #d1d5db' : 'none'
                 }}
                 onMouseDown={() => playNote(note.frequency, note.name)}
@@ -240,7 +239,7 @@ export const PianoKeyboard = () => {
                 return (
                   <div 
                     key={whiteNote.name} 
-                    style={{ width: 'calc(100vw / 21 - 2px)', minWidth: '44px' }}
+                    style={{ width: 'var(--white-key-width)' }}
                   />
                 );
               }
@@ -252,20 +251,19 @@ export const PianoKeyboard = () => {
                 <div 
                   key={whiteNote.name} 
                   className="relative"
-                  style={{ width: 'calc(100vw / 21 - 2px)', minWidth: '44px' }}
+                  style={{ width: 'var(--white-key-width)' }}
                 >
                   {blackKey && (
                     <button
-                      className={`absolute top-0 z-10 transition-all duration-100 ease-out touch-manipulation select-none pointer-events-auto ${
+                      className={`absolute top-0 z-10 transition-all duration-150 ease-out touch-manipulation select-none pointer-events-auto ${
                         isPlaying === blackKey.name
                           ? 'bg-gradient-to-b from-gray-700 via-gray-800 to-gray-600 transform translate-y-1 shadow-inner'
                           : 'bg-gradient-to-b from-gray-800 via-gray-900 to-black hover:from-gray-700 hover:via-gray-800 hover:to-gray-900 shadow-xl hover:shadow-2xl'
                       } rounded-b-md border border-gray-600`}
                       style={{
-                        width: 'calc((100vw / 21 - 2px) * 0.6)',
-                        height: 'calc(max(20vh, 180px) * 0.6)',
-                        minWidth: '26px',
-                        left: 'calc(50% + (100vw / 21 - 2px) * 0.2)',
+                        width: 'var(--black-key-width)',
+                        height: 'var(--black-key-height)',
+                        left: 'calc(50% + var(--white-key-width) * 0.2)',
                         transform: 'translateX(-50%)'
                       }}
                       onMouseDown={() => playNote(blackKey.frequency, blackKey.name)}
