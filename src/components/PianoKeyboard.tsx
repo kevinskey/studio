@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Volume2, VolumeX } from 'lucide-react';
+import { Volume2, VolumeX, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAudioContext } from '@/hooks/useAudioContext';
 
 interface Note {
@@ -70,24 +70,87 @@ export const PianoKeyboard = () => {
   const [volume, setVolume] = useState(0.5);
   const [isMuted, setIsMuted] = useState(false);
   const [selectedInstrument, setSelectedInstrument] = useState<InstrumentType>('grand-piano');
+  const [currentOctave, setCurrentOctave] = useState(3);
   const { audioContext, initializeAudio } = useAudioContext();
 
-  // Generate 3 octaves of notes starting from C3
-  const notes: Note[] = [];
-  const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-  const baseFrequency = 130.81; // C3
+  const keyboardRef = useRef<HTMLDivElement | null>(null);
+  const touchStartX = useRef<number | null>(null);
+  const isDragging = useRef(false);
 
-  for (let octave = 0; octave < 3; octave++) {
-    for (let i = 0; i < noteNames.length; i++) {
-      const noteName = noteNames[i];
-      const frequency = baseFrequency * Math.pow(2, (octave * 12 + i) / 12);
-      notes.push({
-        name: `${noteName}${3 + octave}`,
-        frequency,
-        isSharp: noteName.includes('#')
-      });
+  // Generate notes for current octave plus adjacent octaves for smooth transition
+  const generateNotes = (octave: number): Note[] => {
+    const notes: Note[] = [];
+    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    
+    // Generate 3 octaves (previous, current, next) for smooth transitions
+    for (let oct = octave - 1; oct <= octave + 1; oct++) {
+      const baseFrequency = 261.63 * Math.pow(2, oct - 4); // C4 = 261.63 Hz
+      
+      for (let i = 0; i < noteNames.length; i++) {
+        const noteName = noteNames[i];
+        const frequency = baseFrequency * Math.pow(2, i / 12);
+        notes.push({
+          name: `${noteName}${oct}`,
+          frequency,
+          isSharp: noteName.includes('#')
+        });
+      }
     }
-  }
+    
+    return notes;
+  };
+
+  const notes = generateNotes(currentOctave);
+  
+  // Get notes for the current octave only for display
+  const currentOctaveNotes = notes.slice(12, 24); // Middle octave
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    isDragging.current = false;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    
+    const touchX = e.touches[0].clientX;
+    const deltaX = touchX - touchStartX.current;
+    
+    // Prevent scrolling while swiping
+    if (Math.abs(deltaX) > 10) {
+      e.preventDefault();
+      isDragging.current = true;
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || !isDragging.current) return;
+    
+    const touchX = e.changedTouches[0].clientX;
+    const deltaX = touchX - touchStartX.current;
+    const threshold = 50;
+    
+    if (Math.abs(deltaX) > threshold) {
+      if (deltaX > 0 && currentOctave > 1) {
+        // Swipe right - lower octave
+        setCurrentOctave(prev => Math.max(1, prev - 1));
+      } else if (deltaX < 0 && currentOctave < 7) {
+        // Swipe left - higher octave
+        setCurrentOctave(prev => Math.min(7, prev + 1));
+      }
+    }
+    
+    touchStartX.current = null;
+    isDragging.current = false;
+  };
+
+  const changeOctave = (direction: 'up' | 'down') => {
+    setCurrentOctave(prev => {
+      if (direction === 'up' && prev < 7) return prev + 1;
+      if (direction === 'down' && prev > 1) return prev - 1;
+      return prev;
+    });
+  };
 
   const playNote = async (frequency: number, noteName: string) => {
     let context = audioContext;
@@ -139,8 +202,8 @@ export const PianoKeyboard = () => {
     }
   };
 
-  const whiteKeys = notes.filter(note => !note.isSharp);
-  const blackKeys = notes.filter(note => note.isSharp);
+  const whiteKeys = currentOctaveNotes.filter(note => !note.isSharp);
+  const blackKeys = currentOctaveNotes.filter(note => note.isSharp);
 
   return (
     <div className="w-full space-y-6">
@@ -189,8 +252,44 @@ export const PianoKeyboard = () => {
         </div>
       </div>
 
+      {/* Octave Controls */}
+      <div className="flex items-center justify-center gap-4 p-4 bg-muted/50 rounded-lg">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => changeOctave('down')}
+          disabled={currentOctave <= 1}
+          className="flex items-center gap-2"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Lower
+        </Button>
+        
+        <div className="text-center">
+          <div className="text-lg font-semibold">Octave {currentOctave}</div>
+          <div className="text-sm text-muted-foreground">Swipe left/right to change</div>
+        </div>
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => changeOctave('up')}
+          disabled={currentOctave >= 7}
+          className="flex items-center gap-2"
+        >
+          Higher
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+
       {/* Realistic Piano Keyboard */}
-      <div className="relative w-full overflow-hidden bg-gray-900 p-2 rounded-lg shadow-2xl">
+      <div 
+        ref={keyboardRef}
+        className="relative w-full overflow-hidden bg-gray-900 p-2 rounded-lg shadow-2xl select-none"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         <style>{`
           .piano-container {
             --white-key-width: max(calc(100vw / 21 - 4px), 44px);
@@ -217,8 +316,10 @@ export const PianoKeyboard = () => {
                 }}
                 onMouseDown={() => playNote(note.frequency, note.name)}
                 onTouchStart={(e) => {
-                  e.preventDefault();
-                  playNote(note.frequency, note.name);
+                  if (!isDragging.current) {
+                    e.preventDefault();
+                    playNote(note.frequency, note.name);
+                  }
                 }}
               >
                 <span className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 font-medium pointer-events-none">
@@ -267,8 +368,10 @@ export const PianoKeyboard = () => {
                       }}
                       onMouseDown={() => playNote(blackKey.frequency, blackKey.name)}
                       onTouchStart={(e) => {
-                        e.preventDefault();
-                        playNote(blackKey.frequency, blackKey.name);
+                        if (!isDragging.current) {
+                          e.preventDefault();
+                          playNote(blackKey.frequency, blackKey.name);
+                        }
                       }}
                     >
                       <span className="absolute bottom-3 left-1/2 transform -translate-x-1/2 text-xs text-white font-medium pointer-events-none">
@@ -284,8 +387,8 @@ export const PianoKeyboard = () => {
       </div>
 
       <div className="text-center text-sm text-muted-foreground">
-        <p>Tap or click the keys to play notes</p>
-        <p className="mt-1">Current instrument: {instruments[selectedInstrument].name}</p>
+        <p>Tap or click the keys to play notes • Swipe left/right to change octaves</p>
+        <p className="mt-1">Current: {instruments[selectedInstrument].name} • Octave {currentOctave}</p>
       </div>
     </div>
   );
