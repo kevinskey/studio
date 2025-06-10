@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -72,7 +71,7 @@ export const PianoKeyboard = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [selectedInstrument, setSelectedInstrument] = useState<InstrumentType>('grand-piano');
   const [currentOctave, setCurrentOctave] = useState(3);
-  const { audioContext, initializeAudio } = useAudioContext();
+  const { audioContext, initializeAudio, isAudioEnabled } = useAudioContext();
 
   const keyboardRef = useRef<HTMLDivElement | null>(null);
   const touchStartX = useRef<number | null>(null);
@@ -165,50 +164,65 @@ export const PianoKeyboard = () => {
   };
 
   const playNote = async (frequency: number, noteName: string) => {
+    if (isMuted) return;
+
     let context = audioContext;
-    if (!context || isMuted) {
+    if (!context || !isAudioEnabled) {
       context = await initializeAudio();
-      if (!context || isMuted) return;
+      if (!context) return;
     }
 
     try {
       const instrument = instruments[selectedInstrument];
-      const oscillators: OscillatorNode[] = [];
-      const gainNodes: GainNode[] = [];
-
-      instrument.harmonics?.forEach((harmonic, index) => {
-        const oscillator = context!.createOscillator();
-        const gainNode = context!.createGain();
-
-        oscillator.connect(gainNode);
-        gainNode.connect(context!.destination);
-
-        oscillator.frequency.setValueAtTime(
-          frequency * (index + 1), 
-          context!.currentTime
-        );
-        oscillator.type = instrument.waveType;
-
-        const harmonicVolume = volume * 0.3 * harmonic;
-        gainNode.gain.setValueAtTime(0, context!.currentTime);
-        gainNode.gain.linearRampToValueAtTime(
-          harmonicVolume, 
-          context!.currentTime + instrument.attackTime
-        );
-        gainNode.gain.exponentialRampToValueAtTime(
-          0.001, 
-          context!.currentTime + instrument.releaseTime
-        );
-
-        oscillator.start(context!.currentTime);
-        oscillator.stop(context!.currentTime + instrument.releaseTime);
-
-        oscillators.push(oscillator);
-        gainNodes.push(gainNode);
-      });
+      
+      // Create main oscillator
+      const oscillator = context.createOscillator();
+      const gainNode = context.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(context.destination);
+      
+      oscillator.frequency.setValueAtTime(frequency, context.currentTime);
+      oscillator.type = instrument.waveType;
+      
+      // Set up ADSR envelope
+      const attackTime = instrument.attackTime;
+      const releaseTime = instrument.releaseTime;
+      const sustainLevel = volume * 0.3;
+      
+      gainNode.gain.setValueAtTime(0, context.currentTime);
+      gainNode.gain.linearRampToValueAtTime(sustainLevel, context.currentTime + attackTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, context.currentTime + releaseTime);
+      
+      oscillator.start(context.currentTime);
+      oscillator.stop(context.currentTime + releaseTime);
+      
+      // Add harmonics for richer sound
+      if (instrument.harmonics && instrument.harmonics.length > 1) {
+        instrument.harmonics.slice(1).forEach((harmonic, index) => {
+          const harmonicOsc = context!.createOscillator();
+          const harmonicGain = context!.createGain();
+          
+          harmonicOsc.connect(harmonicGain);
+          harmonicGain.connect(context!.destination);
+          
+          harmonicOsc.frequency.setValueAtTime(frequency * (index + 2), context!.currentTime);
+          harmonicOsc.type = instrument.waveType;
+          
+          const harmonicVolume = sustainLevel * harmonic;
+          harmonicGain.gain.setValueAtTime(0, context!.currentTime);
+          harmonicGain.gain.linearRampToValueAtTime(harmonicVolume, context!.currentTime + attackTime);
+          harmonicGain.gain.exponentialRampToValueAtTime(0.001, context!.currentTime + releaseTime);
+          
+          harmonicOsc.start(context!.currentTime);
+          harmonicOsc.stop(context!.currentTime + releaseTime);
+        });
+      }
 
       setIsPlaying(noteName);
       setTimeout(() => setIsPlaying(null), 200);
+      
+      console.log(`Playing note: ${noteName} at ${frequency}Hz`);
     } catch (error) {
       console.error('Audio playback error:', error);
     }
@@ -237,6 +251,17 @@ export const PianoKeyboard = () => {
               </SelectContent>
             </Select>
           </div>
+          
+          {!isAudioEnabled && (
+            <Button
+              onClick={initializeAudio}
+              variant="outline"
+              size="sm"
+              className="bg-green-500 text-white hover:bg-green-600"
+            >
+              Enable Audio
+            </Button>
+          )}
         </div>
 
         <div className="flex items-center gap-4">
