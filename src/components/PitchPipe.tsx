@@ -1,7 +1,7 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Volume2, VolumeX } from 'lucide-react';
+import { useAudioContext } from '@/hooks/useAudioContext';
 
 interface PitchNote {
   name: string;
@@ -14,7 +14,7 @@ export const PitchPipe = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(0.5);
   const [isMuted, setIsMuted] = useState(false);
-  const audioContextRef = useRef<AudioContext | null>(null);
+  const { audioContext, initializeAudio } = useAudioContext();
   const oscillatorRef = useRef<OscillatorNode | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
 
@@ -33,36 +33,35 @@ export const PitchPipe = () => {
     { name: 'B', frequency: 493.88, color: 'bg-pink-500' },
   ];
 
-  useEffect(() => {
-    audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    return () => {
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
-    };
-  }, []);
-
-  const startTone = (frequency: number, noteName: string) => {
-    if (!audioContextRef.current || isMuted) return;
+  const startTone = async (frequency: number, noteName: string) => {
+    let context = audioContext;
+    if (!context || isMuted) {
+      context = await initializeAudio();
+      if (!context || isMuted) return;
+    }
 
     stopTone();
 
-    oscillatorRef.current = audioContextRef.current.createOscillator();
-    gainNodeRef.current = audioContextRef.current.createGain();
+    try {
+      oscillatorRef.current = context.createOscillator();
+      gainNodeRef.current = context.createGain();
 
-    oscillatorRef.current.connect(gainNodeRef.current);
-    gainNodeRef.current.connect(audioContextRef.current.destination);
+      oscillatorRef.current.connect(gainNodeRef.current);
+      gainNodeRef.current.connect(context.destination);
 
-    oscillatorRef.current.frequency.setValueAtTime(frequency, audioContextRef.current.currentTime);
-    oscillatorRef.current.type = 'sine';
+      oscillatorRef.current.frequency.setValueAtTime(frequency, context.currentTime);
+      oscillatorRef.current.type = 'sine';
 
-    gainNodeRef.current.gain.setValueAtTime(0, audioContextRef.current.currentTime);
-    gainNodeRef.current.gain.linearRampToValueAtTime(volume * 0.3, audioContextRef.current.currentTime + 0.1);
+      gainNodeRef.current.gain.setValueAtTime(0, context.currentTime);
+      gainNodeRef.current.gain.linearRampToValueAtTime(volume * 0.3, context.currentTime + 0.1);
 
-    oscillatorRef.current.start(audioContextRef.current.currentTime);
+      oscillatorRef.current.start(context.currentTime);
 
-    setSelectedNote(noteName);
-    setIsPlaying(true);
+      setSelectedNote(noteName);
+      setIsPlaying(true);
+    } catch (error) {
+      console.error('Audio playback error:', error);
+    }
   };
 
   const stopTone = () => {

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Volume2, VolumeX } from 'lucide-react';
+import { useAudioContext } from '@/hooks/useAudioContext';
 
 interface Note {
   name: string;
@@ -69,7 +70,7 @@ export const PianoKeyboard = () => {
   const [volume, setVolume] = useState(0.5);
   const [isMuted, setIsMuted] = useState(false);
   const [selectedInstrument, setSelectedInstrument] = useState<InstrumentType>('grand-piano');
-  const audioContextRef = useRef<AudioContext | null>(null);
+  const { audioContext, initializeAudio } = useAudioContext();
 
   // Generate 3 octaves of notes starting from C3
   const notes: Note[] = [];
@@ -88,56 +89,54 @@ export const PianoKeyboard = () => {
     }
   }
 
-  useEffect(() => {
-    audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    return () => {
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
-    };
-  }, []);
+  const playNote = async (frequency: number, noteName: string) => {
+    let context = audioContext;
+    if (!context || isMuted) {
+      context = await initializeAudio();
+      if (!context || isMuted) return;
+    }
 
-  const playNote = (frequency: number, noteName: string) => {
-    if (!audioContextRef.current || isMuted) return;
+    try {
+      const instrument = instruments[selectedInstrument];
+      const oscillators: OscillatorNode[] = [];
+      const gainNodes: GainNode[] = [];
 
-    const instrument = instruments[selectedInstrument];
-    const oscillators: OscillatorNode[] = [];
-    const gainNodes: GainNode[] = [];
+      instrument.harmonics?.forEach((harmonic, index) => {
+        const oscillator = context!.createOscillator();
+        const gainNode = context!.createGain();
 
-    // Create harmonics for richer sound
-    instrument.harmonics?.forEach((harmonic, index) => {
-      const oscillator = audioContextRef.current!.createOscillator();
-      const gainNode = audioContextRef.current!.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(context!.destination);
 
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContextRef.current!.destination);
+        oscillator.frequency.setValueAtTime(
+          frequency * (index + 1), 
+          context!.currentTime
+        );
+        oscillator.type = instrument.waveType;
 
-      oscillator.frequency.setValueAtTime(
-        frequency * (index + 1), 
-        audioContextRef.current!.currentTime
-      );
-      oscillator.type = instrument.waveType;
+        const harmonicVolume = volume * 0.3 * harmonic;
+        gainNode.gain.setValueAtTime(0, context!.currentTime);
+        gainNode.gain.linearRampToValueAtTime(
+          harmonicVolume, 
+          context!.currentTime + instrument.attackTime
+        );
+        gainNode.gain.exponentialRampToValueAtTime(
+          0.001, 
+          context!.currentTime + instrument.releaseTime
+        );
 
-      const harmonicVolume = volume * 0.3 * harmonic;
-      gainNode.gain.setValueAtTime(0, audioContextRef.current!.currentTime);
-      gainNode.gain.linearRampToValueAtTime(
-        harmonicVolume, 
-        audioContextRef.current!.currentTime + instrument.attackTime
-      );
-      gainNode.gain.exponentialRampToValueAtTime(
-        0.001, 
-        audioContextRef.current!.currentTime + instrument.releaseTime
-      );
+        oscillator.start(context!.currentTime);
+        oscillator.stop(context!.currentTime + instrument.releaseTime);
 
-      oscillator.start(audioContextRef.current!.currentTime);
-      oscillator.stop(audioContextRef.current!.currentTime + instrument.releaseTime);
+        oscillators.push(oscillator);
+        gainNodes.push(gainNode);
+      });
 
-      oscillators.push(oscillator);
-      gainNodes.push(gainNode);
-    });
-
-    setIsPlaying(noteName);
-    setTimeout(() => setIsPlaying(null), 200);
+      setIsPlaying(noteName);
+      setTimeout(() => setIsPlaying(null), 200);
+    } catch (error) {
+      console.error('Audio playback error:', error);
+    }
   };
 
   const whiteKeys = notes.filter(note => !note.isSharp);
