@@ -1,11 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Volume2, VolumeX, RotateCcw } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePianoSynth, SynthInstrumentType } from '@/hooks/usePianoSynth';
-import { useToast } from '@/hooks/use-toast';
 
 interface Note {
   name: string;
@@ -46,7 +44,6 @@ export const PianoKeyboard = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [selectedInstrument, setSelectedInstrument] = useState<InstrumentType>('grand-piano');
   const isMobile = useIsMobile();
-  const { toast } = useToast();
   
   // Use our new WebAssembly-based synthesizer
   const {
