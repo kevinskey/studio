@@ -3,13 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Music, Mic, Piano, Clock, Download, User, Home, ArrowLeft } from 'lucide-react';
+import { Music, Mic, Piano, Clock, Download, User, Home, ArrowLeft, Target } from 'lucide-react';
 import { PianoKeyboard } from '@/components/PianoKeyboard';
 import { Metronome } from '@/components/Metronome';
 import { PitchPipe } from '@/components/PitchPipe';
 import { RecordingStudio } from '@/components/RecordingStudio';
 import { KaraokeStudio } from '@/components/KaraokeStudio';
 import { UserProfile } from '@/components/UserProfile';
+import { IntonationTrainer } from '@/components/IntonationTrainer';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
@@ -75,7 +76,7 @@ const Studio = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-6 mb-6">
+          <TabsList className="grid w-full grid-cols-7 mb-6">
             <TabsTrigger value="piano" className="flex items-center gap-2">
               <Piano className="h-4 w-4" />
               <span className="hidden sm:inline">Piano</span>
@@ -87,6 +88,10 @@ const Studio = () => {
             <TabsTrigger value="pitch" className="flex items-center gap-2">
               <Music className="h-4 w-4" />
               <span className="hidden sm:inline">Pitch</span>
+            </TabsTrigger>
+            <TabsTrigger value="intonation" className="flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              <span className="hidden sm:inline">Tune</span>
             </TabsTrigger>
             <TabsTrigger value="record" className="flex items-center gap-2">
               <Mic className="h-4 w-4" />
@@ -121,6 +126,10 @@ const Studio = () => {
               <h2 className="text-2xl font-semibold mb-4 text-center">Pitch Pipe</h2>
               <PitchPipe />
             </Card>
+          </TabsContent>
+
+          <TabsContent value="intonation" className="space-y-6">
+            <IntonationTrainer />
           </TabsContent>
 
           <TabsContent value="record" className="space-y-6">

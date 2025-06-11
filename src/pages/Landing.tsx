@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Music, Mic, Piano, Clock, Download, User, Home } from 'lucide-react';
+import { Music, Mic, Piano, Clock, Download, User, Home, Target } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -53,6 +53,13 @@ const Landing = () => {
       description: 'Reference tones for tuning instruments and vocal warm-ups',
       icon: Music,
       color: 'from-green-500 to-green-600'
+    },
+    {
+      id: 'intonation',
+      title: 'Intonation Trainer',
+      description: 'Train your pitch accuracy with real-time visual feedback and exercises',
+      icon: Target,
+      color: 'from-orange-500 to-orange-600'
     },
     {
       id: 'record',
