@@ -48,7 +48,7 @@ export const IntonationTrainer = () => {
 
   const notes = generateNotes();
 
-  // Cleanup function to stop all audio
+  // Simplified cleanup function without selectedNote dependency
   const cleanupAudio = useCallback(async () => {
     console.log('IntonationTrainer: Cleaning up audio...');
     
@@ -68,27 +68,15 @@ export const IntonationTrainer = () => {
       currentNoteRef.current = null;
     }
     
-    // Stop the selected note as well
-    try {
-      await stopNote(selectedNote);
-    } catch (error) {
-      console.error('Error stopping selected note during cleanup:', error);
-    }
-    
     setIsPlayingReference(false);
-  }, [stopNote, selectedNote]);
+  }, [stopNote]);
 
-  // Cleanup on unmount or when switching notes
+  // Cleanup on unmount only
   useEffect(() => {
     return () => {
       cleanupAudio();
     };
   }, [cleanupAudio]);
-
-  // Cleanup when selected note changes
-  useEffect(() => {
-    cleanupAudio();
-  }, [selectedNote, cleanupAudio]);
 
   const playReferenceNote = async () => {
     if (!synthReady) return;
@@ -106,8 +94,10 @@ export const IntonationTrainer = () => {
       // Stop the note after 2 seconds
       playbackTimeoutRef.current = setTimeout(async () => {
         try {
-          await stopNote(selectedNote);
-          currentNoteRef.current = null;
+          if (currentNoteRef.current) {
+            await stopNote(currentNoteRef.current);
+            currentNoteRef.current = null;
+          }
           setIsPlayingReference(false);
           console.log('Reference note stopped automatically');
         } catch (error) {
@@ -153,7 +143,7 @@ export const IntonationTrainer = () => {
   const currentCents = pitchData?.note === selectedNote ? pitchData.cents : 0;
 
   // Update score when in tune
-  React.useEffect(() => {
+  useEffect(() => {
     if (isInTune && pitchData && isListening) {
       setScore(prev => prev + 1);
       setAttempts(prev => prev + 1);
