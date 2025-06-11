@@ -90,12 +90,9 @@ export const PianoKeyboard = () => {
   // Show message when advanced synth is loaded
   useEffect(() => {
     if (isInitialized && hasSynth) {
-      toast({
-        title: "Advanced Piano Synthesizer Loaded",
-        description: "Using WebAssembly-based high-quality piano sounds",
-      });
+      
     }
-  }, [isInitialized, hasSynth, toast]);
+  }, [isInitialized, hasSynth]);
 
   const handlePlayNote = (frequency: number, noteName: string) => {
     if (isMuted) return;
