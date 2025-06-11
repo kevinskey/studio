@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Volume2, VolumeX, RotateCcw } from 'lucide-react';
+import { Volume2, VolumeX, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePianoSynth, SynthInstrumentType } from '@/hooks/usePianoSynth';
 
@@ -43,7 +44,10 @@ export const PianoKeyboard = () => {
   const [volume, setVolume] = useState(0.5);
   const [isMuted, setIsMuted] = useState(false);
   const [selectedInstrument, setSelectedInstrument] = useState<InstrumentType>('grand-piano');
+  const [currentOctave, setCurrentOctave] = useState(4); // Start at octave 4 (C4)
   const isMobile = useIsMobile();
+  const touchStartX = useRef<number>(0);
+  const touchEndX = useRef<number>(0);
   
   // Use our new WebAssembly-based synthesizer
   const {
@@ -56,22 +60,53 @@ export const PianoKeyboard = () => {
     hasSynth
   } = usePianoSynth({ fallbackToOscillator: true });
 
-  // Generate 2 octaves of notes starting from C4 for better mobile experience
-  const notes: Note[] = [];
-  const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-  const baseFrequency = 261.63; // C4
+  // Generate notes for the current octave
+  const generateNotesForOctave = (octave: number): Note[] => {
+    const notes: Note[] = [];
+    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const baseFrequency = 16.35; // C0
 
-  for (let octave = 0; octave < 2; octave++) {
     for (let i = 0; i < noteNames.length; i++) {
       const noteName = noteNames[i];
       const frequency = baseFrequency * Math.pow(2, (octave * 12 + i) / 12);
       notes.push({
-        name: `${noteName}${4 + octave}`,
+        name: `${noteName}${octave}`,
         frequency,
         isSharp: noteName.includes('#')
       });
     }
-  }
+
+    return notes;
+  };
+
+  const notes = generateNotesForOctave(currentOctave);
+
+  // Handle swipe detection
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStartX.current || !touchEndX.current) return;
+    
+    const distance = touchStartX.current - touchEndX.current;
+    const minSwipeDistance = 50;
+
+    if (distance > minSwipeDistance) {
+      // Swipe left - next octave
+      setCurrentOctave(prev => Math.min(7, prev + 1));
+    } else if (distance < -minSwipeDistance) {
+      // Swipe right - previous octave
+      setCurrentOctave(prev => Math.max(1, prev - 1));
+    }
+
+    touchStartX.current = 0;
+    touchEndX.current = 0;
+  };
 
   // Update synth when instrument changes
   useEffect(() => {
@@ -145,6 +180,30 @@ export const PianoKeyboard = () => {
             </Select>
           </div>
 
+          {/* Octave Selection */}
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Octave:</span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentOctave(prev => Math.max(1, prev - 1))}
+                disabled={currentOctave <= 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="w-8 text-center font-mono">{currentOctave}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentOctave(prev => Math.min(7, prev + 1))}
+                disabled={currentOctave >= 7}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
           <div className="flex items-center justify-between">
             <Button
               variant="outline"
@@ -170,8 +229,18 @@ export const PianoKeyboard = () => {
           </div>
         </div>
 
+        {/* Swipe instruction */}
+        <div className="text-center text-sm text-muted-foreground">
+          <p>Swipe left/right to change octaves • Current: C{currentOctave}</p>
+        </div>
+
         {/* Mobile Horizontal Piano */}
-        <div className="relative w-full overflow-x-auto bg-gray-900 p-2 rounded-lg shadow-2xl">
+        <div 
+          className="relative w-full overflow-x-auto bg-gray-900 p-2 rounded-lg shadow-2xl"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           <style>{`
             .piano-mobile {
               --key-width: 60px;
@@ -307,6 +376,30 @@ export const PianoKeyboard = () => {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Octave Selection for Desktop */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">Octave:</span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentOctave(prev => Math.max(1, prev - 1))}
+                disabled={currentOctave <= 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="w-8 text-center font-mono">{currentOctave}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentOctave(prev => Math.min(7, prev + 1))}
+                disabled={currentOctave >= 7}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center gap-4">
@@ -346,8 +439,18 @@ export const PianoKeyboard = () => {
         </div>
       ) : null}
 
+      {/* Octave indicator */}
+      <div className="text-center text-sm text-muted-foreground">
+        <p>Current octave: C{currentOctave} - Use arrow buttons or swipe to change octaves (C1 to C7)</p>
+      </div>
+
       {/* Realistic Piano Keyboard */}
-      <div className="relative w-full overflow-hidden bg-gray-900 p-2 rounded-lg shadow-2xl">
+      <div 
+        className="relative w-full overflow-hidden bg-gray-900 p-2 rounded-lg shadow-2xl"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         <style>{`
           .piano-container {
             --white-key-width: max(calc(100vw / 21 - 4px), 44px);
