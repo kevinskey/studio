@@ -65,6 +65,7 @@ export const useKaraokeRecording = () => {
 
       const audioContext = await getAudioContext();
       const micSource = audioContext.createMediaStreamSource(micStream);
+      const destination = audioContext.createMediaStreamDestination();
       
       let finalMicNode: AudioNode;
 
@@ -99,20 +100,25 @@ export const useKaraokeRecording = () => {
         finalMicNode = micGain;
       }
       
-      const destination = audioContext.createMediaStreamDestination();
+      // Connect microphone to destination
       finalMicNode.connect(destination);
       
+      // Mix in track audio if available
       if (trackAudioRef.current && trackLoadedRef.current) {
         try {
+          console.log('Setting up track audio mixing');
           const trackSource = audioContext.createMediaElementSource(trackAudioRef.current);
           const trackGain = audioContext.createGain();
           trackGain.gain.value = trackVolume;
           
           trackSource.connect(trackGain);
+          // Connect track to both destination (for recording) and speakers (for monitoring)
           trackGain.connect(destination);
           trackGain.connect(audioContext.destination);
+          
+          console.log('Track audio mixed into recording');
         } catch (error) {
-          console.log('Could not mix track audio, recording voice only');
+          console.log('Could not mix track audio, recording voice only:', error);
         }
       }
       
