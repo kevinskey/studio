@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, Smartphone } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePianoKeyboard } from './piano/usePianoKeyboard';
 import { PianoControls } from './piano/PianoControls';
@@ -31,73 +30,55 @@ export const PianoKeyboard = () => {
     handleTouchEnd
   } = usePianoKeyboard();
 
-  // Mobile horizontal layout
+  // Mobile layout
   if (isMobile) {
     return (
-      <div className="w-full space-y-4">
-        {/* iOS Audio Warning */}
-        {isIOS && !audioContextInitialized && (
-          <div className="flex items-center justify-center gap-2 p-4 bg-orange-50 rounded-lg border-2 border-orange-200 animate-pulse">
-            <span className="text-sm text-orange-800 font-bold">
-              🎹 Tap any piano key to enable sound on iPhone/iPad
+      <div className="w-full h-full flex flex-col overflow-hidden bg-gradient-to-b from-gray-50 to-gray-100">
+        {/* Compact mobile header */}
+        <div className="flex-shrink-0 p-3 bg-white border-b shadow-sm">
+          {/* iOS Audio Warning */}
+          {isIOS && !audioContextInitialized && (
+            <div className="flex items-center justify-center gap-2 p-2 bg-orange-50 rounded-lg border border-orange-200 mb-3">
+              <span className="text-xs text-orange-800 font-medium">
+                🎹 Tap any key to enable audio
+              </span>
+            </div>
+          )}
+
+          {/* Mobile Controls - Compact */}
+          <PianoControls
+            selectedInstrument={selectedInstrument}
+            setSelectedInstrument={setSelectedInstrument}
+            currentOctave={currentOctave}
+            setCurrentOctave={setCurrentOctave}
+            volume={volume}
+            setVolume={setVolume}
+            isMuted={isMuted}
+            setIsMuted={setIsMuted}
+            onPanic={handlePanic}
+            isMobile={true}
+          />
+
+          {/* Current octave indicator */}
+          <div className="text-center mt-2">
+            <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
+              Octaves: C{currentOctave} - C{currentOctave + 1}
             </span>
           </div>
-        )}
-
-        {/* Audio Status for iOS */}
-        {isIOS && audioContextInitialized && (
-          <div className="flex items-center justify-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
-            <span className="text-sm text-green-800 font-medium">
-              ✅ Audio enabled and ready to play!
-            </span>
-          </div>
-        )}
-
-        {/* Rotate instruction for mobile */}
-        <div className="flex items-center justify-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <RotateCcw className="h-4 w-4 text-blue-600" />
-          <span className="text-sm text-blue-800 font-medium">
-            Rotate your device horizontally for better piano experience
-          </span>
         </div>
 
-        {/* Mobile Controls */}
-        <PianoControls
-          selectedInstrument={selectedInstrument}
-          setSelectedInstrument={setSelectedInstrument}
-          currentOctave={currentOctave}
-          setCurrentOctave={setCurrentOctave}
-          volume={volume}
-          setVolume={setVolume}
-          isMuted={isMuted}
-          setIsMuted={setIsMuted}
-          onPanic={handlePanic}
-          isMobile={true}
-        />
-
-        {/* Swipe instruction */}
-        <div className="text-center text-sm text-muted-foreground">
-          <p>Swipe left/right to change octaves • Current: C{currentOctave} to C{currentOctave + 1}</p>
-        </div>
-
-        {/* Mobile Piano Keyboard */}
-        <PianoKeyboardLayout
-          notes={notes}
-          isPlaying={isPlaying}
-          onPlayNote={handlePlayNote}
-          onStopNote={handleStopNote}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          isMobile={true}
-        />
-
-        <div className="text-center text-sm text-muted-foreground">
-          <p>Tap the keys to play notes</p>
-          <p className="mt-1">Current instrument: {instruments[selectedInstrument].name}</p>
-          <p className="mt-1">Showing 2 octaves: C{currentOctave} to C{currentOctave + 1}</p>
-          {isIOS && audioContextInitialized && <p className="mt-1 text-green-600">✓ Audio enabled for iOS</p>}
-          {isIOS && !audioContextInitialized && <p className="mt-1 text-orange-600">⚠️ Tap a key to enable audio</p>}
+        {/* Piano takes remaining space */}
+        <div className="flex-1 relative">
+          <PianoKeyboardLayout
+            notes={notes}
+            isPlaying={isPlaying}
+            onPlayNote={handlePlayNote}
+            onStopNote={handleStopNote}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            isMobile={true}
+          />
         </div>
       </div>
     );

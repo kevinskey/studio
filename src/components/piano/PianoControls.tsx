@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -30,9 +29,83 @@ export const PianoControls: React.FC<PianoControlsProps> = ({
   onPanic,
   isMobile = false
 }) => {
-  const controlsClass = isMobile 
-    ? "flex flex-col gap-3 p-4 bg-muted rounded-lg"
-    : "flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-muted rounded-lg";
+  if (isMobile) {
+    return (
+      <div className="space-y-3">
+        {/* Top row - Instrument and Volume */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 flex-1">
+            <span className="text-xs font-medium whitespace-nowrap">Instrument:</span>
+            <Select value={selectedInstrument} onValueChange={(value) => setSelectedInstrument(value as InstrumentType)}>
+              <SelectTrigger className="text-xs h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(instruments).map(([key, instrument]) => (
+                  <SelectItem key={key} value={key} className="text-xs">
+                    {instrument.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsMuted(!isMuted)}
+              className="h-8 w-8 p-0"
+            >
+              {isMuted ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
+            </Button>
+            {onPanic && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={onPanic}
+                className="h-8 w-8 p-0"
+                title="Stop all notes"
+              >
+                <Square className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Bottom row - Octave controls */}
+        <div className="flex items-center justify-center gap-3">
+          <span className="text-xs font-medium">Octave:</span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentOctave(Math.max(1, currentOctave - 1))}
+              disabled={currentOctave <= 1}
+              className="h-8 w-8 p-0"
+            >
+              <ChevronLeft className="h-3 w-3" />
+            </Button>
+            <span className="text-xs font-mono min-w-[40px] text-center">
+              {currentOctave}-{currentOctave + 1}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentOctave(Math.min(6, currentOctave + 1))}
+              disabled={currentOctave >= 6}
+              className="h-8 w-8 p-0"
+            >
+              <ChevronRight className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop layout - unchanged
+  const controlsClass = "flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-muted rounded-lg";
 
   return (
     <div className={controlsClass}>

@@ -29,10 +29,10 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = ({
 
   const keyboardStyle = isMobile 
     ? {
-        '--white-key-width': '28mm',
-        '--white-key-height': '120mm',
-        '--black-key-width': '16mm',
-        '--black-key-height': '75mm'
+        '--white-key-width': '14vw',
+        '--white-key-height': '35vh',
+        '--black-key-width': '8vw',
+        '--black-key-height': '22vh'
       }
     : {
         '--white-key-width': '23mm',
@@ -43,7 +43,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = ({
 
   return (
     <div 
-      className="relative w-screen -mx-4 bg-gray-900 p-2 shadow-2xl"
+      className={`relative ${isMobile ? 'w-screen h-screen overflow-hidden' : 'w-screen -mx-4'} bg-gradient-to-b from-gray-800 to-gray-900 ${isMobile ? 'pt-2 pb-4' : 'p-2'} shadow-2xl`}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
@@ -57,70 +57,89 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = ({
         }
       `}</style>
       
-      <div className="piano-keys relative w-full" style={{ height: keyboardStyle['--white-key-height'] }}>
-        {/* White Keys */}
-        <div className="flex w-full h-full">
-          {whiteKeys.map((note, index) => (
-            <PianoKey
-              key={note.name}
-              note={note}
-              isPlaying={isPlaying === note.name}
-              onPlay={onPlayNote}
-              onStop={onStopNote}
-              isMobile={isMobile}
-              style={{
-                width: 'var(--white-key-width)',
-                borderLeft: index === 0 ? '1px solid #d1d5db' : 'none'
-              }}
-              className="h-full"
-            />
-          ))}
+      {isMobile && (
+        <div className="text-center text-white mb-2 px-4">
+          <div className="text-sm opacity-80">
+            🎹 Touch and hold keys to play • Swipe to change octaves
+          </div>
         </div>
+      )}
+      
+      <div className="piano-keys relative w-full flex justify-center" style={{ height: keyboardStyle['--white-key-height'] }}>
+        <div className="relative">
+          {/* White Keys */}
+          <div className="flex">
+            {whiteKeys.map((note, index) => (
+              <PianoKey
+                key={note.name}
+                note={note}
+                isPlaying={isPlaying === note.name}
+                onPlay={onPlayNote}
+                onStop={onStopNote}
+                isMobile={isMobile}
+                style={{
+                  width: 'var(--white-key-width)',
+                  height: 'var(--white-key-height)',
+                  borderLeft: index === 0 ? '2px solid #e5e7eb' : 'none'
+                }}
+                className="h-full"
+              />
+            ))}
+          </div>
 
-        {/* Black Keys */}
-        <div className="absolute top-0 left-0 flex w-full h-full pointer-events-none">
-          {whiteKeys.map((whiteNote) => {
-            const noteWithoutOctave = whiteNote.name.replace(/\d/, '');
-            const hasBlackKeyAfter = ['C', 'D', 'F', 'G', 'A'].includes(noteWithoutOctave);
-            
-            if (!hasBlackKeyAfter) {
+          {/* Black Keys */}
+          <div className="absolute top-0 left-0 flex pointer-events-none">
+            {whiteKeys.map((whiteNote) => {
+              const noteWithoutOctave = whiteNote.name.replace(/\d/, '');
+              const hasBlackKeyAfter = ['C', 'D', 'F', 'G', 'A'].includes(noteWithoutOctave);
+              
+              if (!hasBlackKeyAfter) {
+                return (
+                  <div 
+                    key={whiteNote.name} 
+                    style={{ width: 'var(--white-key-width)' }}
+                  />
+                );
+              }
+
+              const blackKeyName = noteWithoutOctave + '#' + whiteNote.name.match(/\d/)?.[0];
+              const blackKey = blackKeys.find(key => key.name === blackKeyName);
+
               return (
                 <div 
                   key={whiteNote.name} 
+                  className="relative"
                   style={{ width: 'var(--white-key-width)' }}
-                />
+                >
+                  {blackKey && (
+                    <PianoKey
+                      note={blackKey}
+                      isPlaying={isPlaying === blackKey.name}
+                      onPlay={onPlayNote}
+                      onStop={onStopNote}
+                      isMobile={isMobile}
+                      style={{
+                        width: 'var(--black-key-width)',
+                        height: 'var(--black-key-height)',
+                        left: 'calc(50% + var(--white-key-width) * 0.3)',
+                        transform: 'translateX(-50%)'
+                      }}
+                    />
+                  )}
+                </div>
               );
-            }
-
-            const blackKeyName = noteWithoutOctave + '#' + whiteNote.name.match(/\d/)?.[0];
-            const blackKey = blackKeys.find(key => key.name === blackKeyName);
-
-            return (
-              <div 
-                key={whiteNote.name} 
-                className="relative"
-                style={{ width: 'var(--white-key-width)' }}
-              >
-                {blackKey && (
-                  <PianoKey
-                    note={blackKey}
-                    isPlaying={isPlaying === blackKey.name}
-                    onPlay={onPlayNote}
-                    onStop={onStopNote}
-                    isMobile={isMobile}
-                    style={{
-                      width: 'var(--black-key-width)',
-                      height: 'var(--black-key-height)',
-                      left: 'calc(50% + var(--white-key-width) * 0.25)',
-                      transform: 'translateX(-50%)'
-                    }}
-                  />
-                )}
-              </div>
-            );
-          })}
+            })}
+          </div>
         </div>
       </div>
+
+      {isMobile && (
+        <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 text-center text-white text-xs opacity-70 px-4">
+          <div className="bg-black/30 rounded-lg px-3 py-1">
+            Hold keys for sustained notes • Release to stop
+          </div>
+        </div>
+      )}
     </div>
   );
 };

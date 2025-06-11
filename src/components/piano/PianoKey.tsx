@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useRef, useCallback } from 'react';
 import { Note } from './types';
 
 interface PianoKeyProps {
@@ -21,49 +21,98 @@ export const PianoKey: React.FC<PianoKeyProps> = ({
   style,
   className
 }) => {
-  const baseClasses = "relative transition-all duration-150 ease-out touch-manipulation select-none";
+  const keyRef = useRef<HTMLButtonElement>(null);
+  const isPlayingRef = useRef(false);
+
+  const baseClasses = "relative transition-all duration-100 ease-out touch-manipulation select-none focus:outline-none";
   
   const whiteKeyClasses = isPlaying
-    ? 'bg-gradient-to-b from-gray-200 via-gray-300 to-gray-100 transform translate-y-1 shadow-inner'
-    : 'bg-gradient-to-b from-white via-gray-50 to-gray-100 hover:from-gray-50 hover:via-gray-100 hover:to-gray-200 shadow-lg hover:shadow-xl active:from-gray-200 active:via-gray-300 active:to-gray-100';
+    ? 'bg-gradient-to-b from-blue-200 via-blue-300 to-blue-100 transform scale-95 shadow-inner border-2 border-blue-400'
+    : 'bg-gradient-to-b from-white via-gray-50 to-gray-100 hover:from-gray-50 hover:via-gray-100 hover:to-gray-200 shadow-lg hover:shadow-xl active:from-blue-200 active:via-blue-300 active:to-blue-100 active:scale-95 border-2 border-gray-300';
 
   const blackKeyClasses = isPlaying
-    ? 'bg-gradient-to-b from-gray-700 via-gray-800 to-gray-600 transform translate-y-1 shadow-inner'
-    : 'bg-gradient-to-b from-gray-800 via-gray-900 to-black hover:from-gray-700 hover:via-gray-800 hover:to-gray-900 shadow-xl hover:shadow-2xl';
+    ? 'bg-gradient-to-b from-purple-600 via-purple-700 to-purple-500 transform scale-95 shadow-inner border-2 border-purple-400'
+    : 'bg-gradient-to-b from-gray-800 via-gray-900 to-black hover:from-gray-700 hover:via-gray-800 hover:to-gray-900 shadow-xl hover:shadow-2xl active:from-purple-600 active:via-purple-700 active:to-purple-500 active:scale-95 border-2 border-gray-600';
 
   const keyClasses = note.isSharp 
-    ? `${baseClasses} ${blackKeyClasses} rounded-b-md border border-gray-600 pointer-events-auto z-10 absolute top-0`
-    : `${baseClasses} ${whiteKeyClasses} border-r border-gray-300 rounded-b-md`;
+    ? `${baseClasses} ${blackKeyClasses} rounded-b-xl pointer-events-auto z-10 absolute top-0`
+    : `${baseClasses} ${whiteKeyClasses} border-r border-gray-300 rounded-b-xl`;
 
-  const textColor = note.isSharp ? 'text-white' : 'text-gray-500';
+  const textColor = note.isSharp ? 'text-white' : 'text-gray-600';
+  const noteDisplay = note.name.replace(/\d/, '');
 
-  const handleMouseEvents = {
-    onMouseDown: () => onPlay(note.frequency, note.name),
-    onMouseUp: () => onStop(note.name),
-    onMouseLeave: () => onStop(note.name)
-  };
-
-  const handleTouchEvents = {
-    onTouchStart: (e: React.TouchEvent) => {
-      e.preventDefault();
+  const startPlaying = useCallback(() => {
+    if (!isPlayingRef.current) {
+      isPlayingRef.current = true;
       onPlay(note.frequency, note.name);
-    },
-    onTouchEnd: (e: React.TouchEvent) => {
-      e.preventDefault();
+    }
+  }, [note.frequency, note.name, onPlay]);
+
+  const stopPlaying = useCallback(() => {
+    if (isPlayingRef.current) {
+      isPlayingRef.current = false;
       onStop(note.name);
     }
+  }, [note.name, onStop]);
+
+  const handleMouseDown = useCallback(() => {
+    startPlaying();
+  }, [startPlaying]);
+
+  const handleMouseUp = useCallback(() => {
+    stopPlaying();
+  }, [stopPlaying]);
+
+  const handleMouseLeave = useCallback(() => {
+    stopPlaying();
+  }, [stopPlaying]);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    startPlaying();
+  }, [startPlaying]);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    stopPlaying();
+  }, [stopPlaying]);
+
+  // Enhanced touch handling for mobile
+  const touchEvents = isMobile ? {
+    onTouchStart: handleTouchStart,
+    onTouchEnd: handleTouchEnd,
+    onTouchCancel: handleTouchEnd,
+  } : {
+    onTouchStart: handleTouchStart,
+    onTouchEnd: handleTouchEnd,
+  };
+
+  const mouseEvents = {
+    onMouseDown: handleMouseDown,
+    onMouseUp: handleMouseUp,
+    onMouseLeave: handleMouseLeave,
   };
 
   return (
     <button
+      ref={keyRef}
       className={`${keyClasses} ${className || ''}`}
       style={style}
-      {...handleMouseEvents}
-      {...handleTouchEvents}
+      {...mouseEvents}
+      {...touchEvents}
     >
-      <span className={`absolute bottom-2 left-1/2 transform -translate-x-1/2 text-xs ${textColor} font-medium pointer-events-none`}>
-        {note.name.replace(/\d/, '')}
+      <span 
+        className={`absolute ${note.isSharp ? 'bottom-3' : 'bottom-4'} left-1/2 transform -translate-x-1/2 ${isMobile ? 'text-sm' : 'text-xs'} ${textColor} font-bold pointer-events-none drop-shadow-sm`}
+      >
+        {noteDisplay}
       </span>
+      
+      {/* Visual feedback ring for mobile */}
+      {isMobile && isPlaying && (
+        <div className="absolute inset-0 rounded-b-xl border-4 border-blue-400 pointer-events-none animate-pulse" />
+      )}
     </button>
   );
 };
