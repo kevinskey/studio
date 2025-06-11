@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -96,13 +95,13 @@ export const TrackUpload: React.FC<TrackUploadProps> = ({
       });
 
       // Upload to permanent storage in background
-      const audio = new Audio(URL.createObjectURL(file));
+      const uploadAudio = new Audio(URL.createObjectURL(file));
       await new Promise((resolve, reject) => {
-        audio.onloadedmetadata = () => resolve(Math.floor(audio.duration));
-        audio.onerror = () => reject(new Error('Invalid audio file'));
+        uploadAudio.onloadedmetadata = () => resolve(Math.floor(uploadAudio.duration));
+        uploadAudio.onerror = () => reject(new Error('Invalid audio file'));
       });
 
-      const duration = Math.floor(audio.duration);
+      const duration = Math.floor(uploadAudio.duration);
       const savedTrack = await uploadKaraokeTrack(file, uploadTitle.trim(), uploadArtist.trim() || 'Custom Upload', duration);
       
       if (savedTrack) {
