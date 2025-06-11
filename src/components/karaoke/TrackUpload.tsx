@@ -1,19 +1,21 @@
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Upload, X, Save, Loader2, Trash2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Upload, Music, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { KaraokeTrack } from '@/types/karaoke';
 import { uploadKaraokeTrack, loadSavedTracks, deleteKaraokeTrack } from '@/services/karaokeService';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 
 interface TrackUploadProps {
   customTracks: KaraokeTrack[];
-  setCustomTracks: React.Dispatch<React.SetStateAction<KaraokeTrack[]>>;
-  setSelectedTrack: React.Dispatch<React.SetStateAction<KaraokeTrack | null>>;
+  setCustomTracks: (tracks: KaraokeTrack[]) => void;
+  savedTracks: KaraokeTrack[];
+  setSavedTracks: (tracks: KaraokeTrack[]) => void;
   selectedTrack: KaraokeTrack | null;
+  setSelectedTrack: (track: KaraokeTrack | null) => void;
   setIsPlayingTrack: (playing: boolean) => void;
   trackLoadedRef: React.MutableRefObject<boolean>;
 }
@@ -21,298 +23,271 @@ interface TrackUploadProps {
 export const TrackUpload: React.FC<TrackUploadProps> = ({
   customTracks,
   setCustomTracks,
-  setSelectedTrack,
+  savedTracks,
+  setSavedTracks,
   selectedTrack,
+  setSelectedTrack,
   setIsPlayingTrack,
   trackLoadedRef
 }) => {
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [uploadingTrack, setUploadingTrack] = useState<string | null>(null);
-  const [isSaveToLibrary, setIsSaveToLibrary] = useState(true);
-  const [savedTracks, setSavedTracks] = useState<KaraokeTrack[]>([]);
-  const [isLoadingSaved, setIsLoadingSaved] = useState(false);
-  const [deletingTrackId, setDeletingTrackId] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadTitle, setUploadTitle] = useState('');
+  const [uploadArtist, setUploadArtist] = useState('');
 
-  // Load saved tracks from database on component mount
+  // Load saved tracks when component mounts
   useEffect(() => {
-    const fetchSavedTracks = async () => {
-      setIsLoadingSaved(true);
-      try {
-        const tracks = await loadSavedTracks();
-        setSavedTracks(tracks);
-      } catch (error) {
-        console.error('Error loading saved tracks:', error);
-      } finally {
-        setIsLoadingSaved(false);
-      }
-    };
-    
-    fetchSavedTracks();
+    loadSavedTracksFromDB();
   }, []);
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const loadSavedTracksFromDB = async () => {
+    try {
+      const tracks = await loadSavedTracks();
+      setSavedTracks(tracks);
+    } catch (error) {
+      console.error('Error loading saved tracks:', error);
+      toast.error('Failed to load saved tracks');
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    console.log('Uploading file:', file.name, 'Type:', file.type, 'Size:', file.size);
+    if (!uploadTitle.trim()) {
+      toast.error('Please enter a title for the track');
+      return;
+    }
 
+    // Check if file is audio
     if (!file.type.startsWith('audio/')) {
       toast.error('Please select an audio file');
       return;
     }
 
-    if (file.size > 50 * 1024 * 1024) {
-      toast.error('File size must be less than 50MB');
-      return;
-    }
+    setIsUploading(true);
 
-    const url = URL.createObjectURL(file);
-    const audio = new Audio(url);
-    
-    audio.onloadedmetadata = async () => {
-      console.log('Audio metadata loaded, duration:', audio.duration);
-      const trackTitle = file.name.replace(/\.[^/.]+$/, "");
+    try {
+      // Create temporary local track first for immediate use
+      const audioUrl = URL.createObjectURL(file);
+      const audio = new Audio(audioUrl);
       
-      if (isSaveToLibrary) {
-        // Save to permanent storage
-        setUploadingTrack(trackTitle);
-        
-        const savedTrack = await uploadKaraokeTrack(
-          file,
-          trackTitle,
-          'Custom Upload',
-          Math.round(audio.duration)
-        );
-        
-        setUploadingTrack(null);
-        
-        if (savedTrack) {
-          // Add to saved tracks list
-          setSavedTracks(prev => [savedTrack, ...prev]);
-          setSelectedTrack(savedTrack);
+      await new Promise((resolve, reject) => {
+        audio.onloadedmetadata = () => {
+          const duration = Math.floor(audio.duration);
+          
+          const tempTrack: KaraokeTrack = {
+            id: `temp-${Date.now()}`,
+            title: uploadTitle.trim(),
+            artist: uploadArtist.trim() || 'Custom Upload',
+            duration: duration,
+            url: audioUrl,
+            isCustom: true
+          };
+          
+          setCustomTracks([...customTracks, tempTrack]);
+          setSelectedTrack(tempTrack);
+          setIsPlayingTrack(false);
           trackLoadedRef.current = false;
-          URL.revokeObjectURL(url); // Clean up the blob URL since we don't need it
-          toast.success('Track saved to library successfully!');
-        } else {
-          // If permanent save fails, fall back to temporary custom track
-          handleTemporaryUpload(url, trackTitle, audio.duration);
-          toast.error('Failed to save to library. Track is available temporarily.');
-        }
-      } else {
-        // Just use as temporary custom track
-        handleTemporaryUpload(url, trackTitle, audio.duration);
+          
+          toast.success('Track added for this session!');
+          resolve(duration);
+        };
+        audio.onerror = () => reject(new Error('Invalid audio file'));
+      });
+
+      // Upload to permanent storage in background
+      const audio = new Audio(URL.createObjectURL(file));
+      await new Promise((resolve, reject) => {
+        audio.onloadedmetadata = () => resolve(Math.floor(audio.duration));
+        audio.onerror = () => reject(new Error('Invalid audio file'));
+      });
+
+      const duration = Math.floor(audio.duration);
+      const savedTrack = await uploadKaraokeTrack(file, uploadTitle.trim(), uploadArtist.trim() || 'Custom Upload', duration);
+      
+      if (savedTrack) {
+        setSavedTracks([savedTrack, ...savedTracks]);
+        toast.success('Track saved to library permanently!');
       }
-    };
 
-    audio.onerror = (e) => {
-      console.error('Error loading audio file:', e);
-      URL.revokeObjectURL(url);
-      toast.error('Failed to load audio file. Please try a different format.');
-    };
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+    } catch (error) {
+      console.error('Error uploading track:', error);
+      toast.error('Failed to process audio file. Please try a different format.');
+    } finally {
+      setIsUploading(false);
+      setUploadTitle('');
+      setUploadArtist('');
+      // Reset the input
+      event.target.value = '';
     }
   };
 
-  const handleTemporaryUpload = (url: string, title: string, duration: number) => {
-    const newTrack: KaraokeTrack = {
-      id: `custom-${Date.now()}`,
-      title: title,
-      artist: 'Custom Upload',
-      duration: Math.round(duration),
-      url,
-      isCustom: true
-    };
+  const handleDeleteSavedTrack = async (trackId: string) => {
+    const track = savedTracks.find(t => t.id === trackId);
+    if (!track) return;
 
-    setCustomTracks(prev => [...prev, newTrack]);
-    setSelectedTrack(newTrack);
-    trackLoadedRef.current = false;
-    toast.success('Track uploaded successfully!');
-  };
-
-  const removeCustomTrack = (trackId: string) => {
-    const trackToRemove = customTracks.find(t => t.id === trackId);
-    if (trackToRemove && trackToRemove.url.startsWith('blob:')) {
-      URL.revokeObjectURL(trackToRemove.url);
-    }
-    
-    setCustomTracks(prev => prev.filter(t => t.id !== trackId));
-    
-    if (selectedTrack?.id === trackId) {
-      setSelectedTrack(null);
-      setIsPlayingTrack(false);
-      trackLoadedRef.current = false;
-    }
-    
-    toast.success('Track removed');
-  };
-
-  const selectSavedTrack = (track: KaraokeTrack) => {
-    setSelectedTrack(track);
-    trackLoadedRef.current = false;
-    setIsPlayingTrack(false);
-  };
-
-  const handleDeleteSavedTrack = async (trackId: string, trackTitle: string) => {
-    if (!confirm(`Are you sure you want to delete "${trackTitle}"? This action cannot be undone.`)) {
+    if (!confirm(`Are you sure you want to delete "${track.title}" from the library? This will affect all users.`)) {
       return;
     }
 
-    setDeletingTrackId(trackId);
-    
     try {
       const success = await deleteKaraokeTrack(trackId);
-      
       if (success) {
-        // Remove from local state
-        setSavedTracks(prev => prev.filter(t => t.id !== trackId));
+        setSavedTracks(savedTracks.filter(t => t.id !== trackId));
         
-        // If this was the selected track, clear selection
+        // If the deleted track was selected, clear selection
         if (selectedTrack?.id === trackId) {
           setSelectedTrack(null);
           setIsPlayingTrack(false);
           trackLoadedRef.current = false;
         }
         
-        toast.success('Track deleted successfully');
+        toast.success('Track deleted from library');
       } else {
         toast.error('Failed to delete track');
       }
     } catch (error) {
       console.error('Error deleting track:', error);
       toast.error('Failed to delete track');
-    } finally {
-      setDeletingTrackId(null);
     }
   };
 
+  const handleDeleteCustomTrack = (trackId: string) => {
+    const track = customTracks.find(t => t.id === trackId);
+    if (!track) return;
+
+    if (!confirm(`Are you sure you want to remove "${track.title}" from this session?`)) {
+      return;
+    }
+
+    // Clean up the blob URL
+    if (track.url.startsWith('blob:')) {
+      URL.revokeObjectURL(track.url);
+    }
+
+    setCustomTracks(customTracks.filter(t => t.id !== trackId));
+    
+    // If the deleted track was selected, clear selection
+    if (selectedTrack?.id === trackId) {
+      setSelectedTrack(null);
+      setIsPlayingTrack(false);
+      trackLoadedRef.current = false;
+    }
+    
+    toast.success('Track removed from session');
+  };
+
   return (
-    <>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="audio/*"
-        onChange={handleFileUpload}
-        className="hidden"
-      />
-
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Upload Karaoke Track</h3>
-        <div className="flex items-center space-x-2 mb-4">
-          <Checkbox 
-            id="saveToLibrary" 
-            checked={isSaveToLibrary}
-            onCheckedChange={(checked) => setIsSaveToLibrary(checked as boolean)}
-          />
-          <Label htmlFor="saveToLibrary">
-            Save to permanent library (accessible to all users)
-          </Label>
+    <Card className="p-6">
+      <h3 className="text-lg font-semibold mb-4">Upload Audio Track</h3>
+      
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="title">Song Title *</Label>
+            <Input
+              id="title"
+              value={uploadTitle}
+              onChange={(e) => setUploadTitle(e.target.value)}
+              placeholder="Enter song title"
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="artist">Artist</Label>
+            <Input
+              id="artist"
+              value={uploadArtist}
+              onChange={(e) => setUploadArtist(e.target.value)}
+              placeholder="Enter artist name"
+            />
+          </div>
         </div>
-        <Button 
-          onClick={() => fileInputRef.current?.click()}
-          className="w-full"
-          variant="outline"
-          disabled={!!uploadingTrack}
-        >
-          {uploadingTrack ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Saving "{uploadingTrack}"...
-            </>
-          ) : (
-            <>
-              <Upload className="h-4 w-4 mr-2" />
-              Choose Audio File
-            </>
-          )}
-        </Button>
-        <p className="text-sm text-muted-foreground mt-2">
-          Supported formats: MP3, WAV, OGG, M4A (Max: 50MB)
-        </p>
-      </Card>
 
-      {isLoadingSaved ? (
-        <Card className="p-6 flex items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin mr-2" />
-          <p>Loading saved tracks...</p>
-        </Card>
-      ) : savedTracks.length > 0 && (
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Saved Library Tracks</h3>
-          <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
-            {savedTracks.map((track) => (
-              <div 
-                key={track.id} 
-                className={`flex items-center justify-between p-3 rounded-lg cursor-pointer ${
-                  selectedTrack?.id === track.id ? 'bg-primary/10 border border-primary/50' : 'bg-muted'
-                }`}
-                onClick={() => selectSavedTrack(track)}
-              >
-                <div className="flex-1">
-                  <div className="font-medium">{track.title}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {track.artist} • {Math.floor(track.duration / 60)}:{(track.duration % 60).toString().padStart(2, '0')}
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteSavedTrack(track.id, track.title);
-                  }}
-                  disabled={deletingTrackId === track.id}
-                  className="text-destructive hover:text-destructive"
-                >
-                  {deletingTrackId === track.id ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {customTracks.length > 0 && (
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Your Temporary Uploads</h3>
-          <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
-            {customTracks.map((track) => (
-              <div 
-                key={track.id} 
-                className={`flex items-center justify-between p-3 rounded-lg cursor-pointer ${
-                  selectedTrack?.id === track.id ? 'bg-primary/10 border border-primary/50' : 'bg-muted'
-                }`}
-                onClick={() => selectSavedTrack(track)}
-              >
-                <div className="flex-1">
-                  <div className="font-medium">{track.title}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {track.artist} • {Math.floor(track.duration / 60)}:{(track.duration % 60).toString().padStart(2, '0')}
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeCustomTrack(track.id);
-                  }}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground mt-4">
-            Note: Temporary uploads will be lost when you close the browser.
+        <div>
+          <Label htmlFor="audio-upload">Audio File</Label>
+          <Input
+            id="audio-upload"
+            type="file"
+            accept="audio/*"
+            onChange={handleFileUpload}
+            disabled={isUploading}
+            className="cursor-pointer"
+          />
+          <p className="text-sm text-gray-600 mt-1">
+            Supports MP3, WAV, OGG, and other audio formats
           </p>
-        </Card>
+        </div>
+
+        {isUploading && (
+          <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
+            <Upload className="h-4 w-4 animate-pulse" />
+            <span className="text-sm">Processing and uploading track...</span>
+          </div>
+        )}
+      </div>
+
+      {/* Saved Library Tracks */}
+      {savedTracks.length > 0 && (
+        <div className="mt-6">
+          <h4 className="text-md font-semibold mb-3 flex items-center gap-2">
+            <Music className="h-4 w-4" />
+            Library Tracks ({savedTracks.length})
+          </h4>
+          <div className="space-y-2 max-h-40 overflow-y-auto">
+            {savedTracks.map((track) => (
+              <div
+                key={track.id}
+                className="flex items-center justify-between p-2 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm truncate">{track.title}</div>
+                  <div className="text-xs text-gray-600 truncate">{track.artist}</div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleDeleteSavedTrack(track.id)}
+                  className="text-destructive hover:text-destructive ml-2"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
-    </>
+
+      {/* Custom Session Tracks */}
+      {customTracks.length > 0 && (
+        <div className="mt-6">
+          <h4 className="text-md font-semibold mb-3">Session Tracks ({customTracks.length})</h4>
+          <div className="space-y-2 max-h-32 overflow-y-auto">
+            {customTracks.map((track) => (
+              <div
+                key={track.id}
+                className="flex items-center justify-between p-2 bg-yellow-50 rounded-lg"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm truncate">{track.title}</div>
+                  <div className="text-xs text-gray-600 truncate">{track.artist}</div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleDeleteCustomTrack(track.id)}
+                  className="text-destructive hover:text-destructive ml-2"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            Session tracks are temporary and will be lost when you reload the page
+          </p>
+        </div>
+      )}
+    </Card>
   );
 };

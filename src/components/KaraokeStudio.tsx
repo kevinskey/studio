@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Mic } from 'lucide-react';
@@ -16,6 +17,7 @@ export const KaraokeStudio = () => {
   const [trackVolume, setTrackVolume] = useState(0.7);
   const [micVolume, setMicVolume] = useState(1.0);
   const [customTracks, setCustomTracks] = useState<KaraokeTrack[]>([]);
+  const [savedTracks, setSavedTracks] = useState<KaraokeTrack[]>([]);
   
   const trackAudioRef = useRef<HTMLAudioElement | null>(null);
   const trackLoadedRef = useRef(false);
@@ -34,7 +36,8 @@ export const KaraokeStudio = () => {
     removeRecording
   } = useKaraokeRecording();
 
-  const allTracks = [...customTracks];
+  // Combine saved tracks and custom tracks for selection
+  const allTracks = [...savedTracks, ...customTracks];
 
   // Initialize audio element and check permissions - only once
   useEffect(() => {
@@ -175,8 +178,10 @@ export const KaraokeStudio = () => {
       <TrackUpload
         customTracks={customTracks}
         setCustomTracks={setCustomTracks}
-        setSelectedTrack={setSelectedTrack}
+        savedTracks={savedTracks}
+        setSavedTracks={setSavedTracks}
         selectedTrack={selectedTrack}
+        setSelectedTrack={setSelectedTrack}
         setIsPlayingTrack={setIsPlayingTrack}
         trackLoadedRef={trackLoadedRef}
       />
@@ -216,7 +221,7 @@ export const KaraokeStudio = () => {
 
       <div className="text-center text-sm text-gray-600">
         <p>Professional karaoke recording with automatic level control</p>
-        <p className="mt-1">Upload your own MP3, WAV, or other audio files</p>
+        <p className="mt-1">Upload your own tracks or use the shared library</p>
       </div>
     </div>
   );
