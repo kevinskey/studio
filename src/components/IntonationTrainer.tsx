@@ -1,97 +1,72 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { Play, Square, Mic, MicOff, RotateCcw } from 'lucide-react';
-import { PitchGauge } from '@/components/intonation/PitchGauge';
 import { usePitchDetection } from '@/hooks/usePitchDetection';
 import { usePianoSynth } from '@/hooks/usePianoSynth';
-
-const PRACTICE_NOTES = [
-  { note: 'C4', frequency: 261.63 },
-  { note: 'D4', frequency: 293.66 },
-  { note: 'E4', frequency: 329.63 },
-  { note: 'F4', frequency: 349.23 },
-  { note: 'G4', frequency: 392.00 },
-  { note: 'A4', frequency: 440.00 },
-  { note: 'B4', frequency: 493.88 },
-  { note: 'C5', frequency: 523.25 }
-];
+import { PitchGauge } from './intonation/PitchGauge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export const IntonationTrainer = () => {
-  const [selectedNote, setSelectedNote] = useState(PRACTICE_NOTES[5]); // A4 default
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [exerciseMode, setExerciseMode] = useState<'single' | 'sequence'>('single');
-  const [score, setScore] = useState<number[]>([]);
-  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
-  
-  const { 
-    isListening, 
-    pitchData, 
-    error, 
-    startListening, 
-    stopListening 
+  const [selectedNote, setSelectedNote] = useState('C2');
+  const [isPlayingReference, setIsPlayingReference] = useState(false);
+  const [practiceMode, setPracticeMode] = useState<'single' | 'sequence'>('single');
+  const [score, setScore] = useState(0);
+  const [attempts, setAttempts] = useState(0);
+
+  const {
+    isListening,
+    pitchData,
+    error: pitchError,
+    startListening,
+    stopListening
   } = usePitchDetection();
-  
-  const { 
-    playNote, 
-    stopNote, 
-    isInitialized: synthReady 
+
+  const {
+    playNote,
+    stopNote,
+    isInitialized: synthReady
   } = usePianoSynth();
 
-  // Play the target note
-  const playTargetNote = useCallback(async () => {
-    if (!synthReady) return;
+  // Generate notes from C2 to C6 (4 octaves)
+  const generateNotes = useCallback(() => {
+    const notes = [];
+    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
     
-    setIsPlaying(true);
-    await playNote(selectedNote.note, 100);
+    for (let octave = 2; octave <= 6; octave++) {
+      for (const noteName of noteNames) {
+        notes.push(`${noteName}${octave}`);
+      }
+    }
     
-    // Stop after 2 seconds
-    setTimeout(async () => {
-      await stopNote(selectedNote.note);
-      setIsPlaying(false);
-    }, 2000);
-  }, [selectedNote.note, synthReady, playNote, stopNote]);
-
-  // Calculate accuracy score based on cents deviation
-  const calculateAccuracy = useCallback((cents: number) => {
-    const maxDeviation = 50; // ±50 cents
-    const accuracy = Math.max(0, 100 - (Math.abs(cents) / maxDeviation) * 100);
-    return Math.round(accuracy);
+    return notes;
   }, []);
 
-  // Handle pitch data updates for scoring
-  useEffect(() => {
-    if (pitchData && pitchData.confidence > 0.7) {
-      const accuracy = calculateAccuracy(pitchData.cents);
-      
-      // Update score if accuracy is good enough and we're targeting the right note
-      if (accuracy > 70 && pitchData.note === selectedNote.note) {
-        setScore(prev => [...prev.slice(-9), accuracy]); // Keep last 10 scores
-      }
-    }
-  }, [pitchData, selectedNote.note, calculateAccuracy]);
+  const notes = generateNotes();
 
-  // Auto-advance in sequence mode
-  useEffect(() => {
-    if (exerciseMode === 'sequence' && score.length > 0) {
-      const recentScores = score.slice(-5);
-      const averageScore = recentScores.reduce((a, b) => a + b, 0) / recentScores.length;
-      
-      // Auto-advance if recent average score is above 80
-      if (recentScores.length >= 3 && averageScore > 80) {
-        setTimeout(() => {
-          const nextIndex = (currentExerciseIndex + 1) % PRACTICE_NOTES.length;
-          setCurrentExerciseIndex(nextIndex);
-          setSelectedNote(PRACTICE_NOTES[nextIndex]);
-          setScore([]);
-        }, 1000);
-      }
-    }
-  }, [score, exerciseMode, currentExerciseIndex]);
+  const playReferenceNote = async () => {
+    if (!synthReady) return;
+    
+    setIsPlayingReference(true);
+    await playNote(selectedNote, 80);
+    
+    // Stop the note after 2 seconds
+    setTimeout(async () => {
+      await stopNote(selectedNote);
+      setIsPlayingReference(false);
+    }, 2000);
+  };
 
-  const handleStartStop = () => {
+  const stopReferenceNote = async () => {
+    if (!synthReady) return;
+    
+    await stopNote(selectedNote);
+    setIsPlayingReference(false);
+  };
+
+  const handleToggleListening = () => {
     if (isListening) {
       stopListening();
     } else {
@@ -99,153 +74,169 @@ export const IntonationTrainer = () => {
     }
   };
 
-  const handleReset = () => {
-    setScore([]);
-    setCurrentExerciseIndex(0);
-    setSelectedNote(PRACTICE_NOTES[0]);
+  const resetScore = () => {
+    setScore(0);
+    setAttempts(0);
   };
 
-  const averageScore = score.length > 0 ? 
-    Math.round(score.reduce((a, b) => a + b, 0) / score.length) : 0;
+  // Check if current pitch matches selected note
+  const isInTune = pitchData && pitchData.note === selectedNote && Math.abs(pitchData.cents) <= 10;
+  const currentCents = pitchData?.note === selectedNote ? pitchData.cents : 0;
+
+  // Update score when in tune
+  React.useEffect(() => {
+    if (isInTune && pitchData && isListening) {
+      setScore(prev => prev + 1);
+      setAttempts(prev => prev + 1);
+    } else if (pitchData && pitchData.note === selectedNote && isListening) {
+      setAttempts(prev => prev + 1);
+    }
+  }, [isInTune, pitchData, selectedNote, isListening]);
+
+  const accuracy = attempts > 0 ? Math.round((score / attempts) * 100) : 0;
 
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-4xl mx-auto space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+        <CardHeader className="text-center">
+          <CardTitle className="flex items-center justify-center gap-2">
             <Mic className="h-6 w-6" />
             Intonation Trainer
           </CardTitle>
+          <CardDescription>
+            Train your pitch accuracy with real-time visual feedback
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Controls */}
-          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">Mode:</span>
-                <Select 
-                  value={exerciseMode} 
-                  onValueChange={(value) => setExerciseMode(value as 'single' | 'sequence')}
-                >
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="single">Single Note</SelectItem>
-                    <SelectItem value="sequence">Sequence</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              {exerciseMode === 'single' && (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">Note:</span>
-                  <Select 
-                    value={selectedNote.note} 
-                    onValueChange={(value) => {
-                      const note = PRACTICE_NOTES.find(n => n.note === value);
-                      if (note) setSelectedNote(note);
-                    }}
-                  >
-                    <SelectTrigger className="w-24">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PRACTICE_NOTES.map(note => (
-                        <SelectItem key={note.note} value={note.note}>
-                          {note.note}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+          {/* Note Selection */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Target Note</label>
+              <Button variant="outline" size="sm" onClick={resetScore}>
+                <RotateCcw className="h-4 w-4 mr-1" />
+                Reset Score
+              </Button>
             </div>
             
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={playTargetNote}
-                disabled={!synthReady || isPlaying}
-              >
-                {isPlaying ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                {isPlaying ? 'Playing...' : 'Play Note'}
-              </Button>
-              
-              <Button
-                variant={isListening ? "destructive" : "default"}
-                onClick={handleStartStop}
-              >
-                {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                {isListening ? 'Stop' : 'Start'}
-              </Button>
-              
-              <Button variant="outline" size="sm" onClick={handleReset}>
-                <RotateCcw className="h-4 w-4" />
-              </Button>
+            <ScrollArea className="w-full whitespace-nowrap">
+              <div className="flex space-x-2 pb-2">
+                {notes.map((note) => (
+                  <Button
+                    key={note}
+                    variant={selectedNote === note ? "default" : "outline"}
+                    size="sm"
+                    className="flex-shrink-0 min-w-[60px]"
+                    onClick={() => setSelectedNote(note)}
+                  >
+                    {note}
+                  </Button>
+                ))}
+              </div>
+            </ScrollArea>
+            
+            <div className="text-xs text-muted-foreground text-center">
+              Swipe or scroll to see more notes • Currently showing C2 to C6
             </div>
           </div>
-          
-          {/* Error display */}
-          {error && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-              {error}
+
+          {/* Reference Note Controls */}
+          <div className="flex items-center justify-center gap-4">
+            <Button
+              onClick={playReferenceNote}
+              disabled={isPlayingReference || !synthReady}
+              className="flex items-center gap-2"
+            >
+              <Play className="h-4 w-4" />
+              Play Reference
+            </Button>
+            
+            {isPlayingReference && (
+              <Button
+                onClick={stopReferenceNote}
+                variant="destructive"
+                className="flex items-center gap-2"
+              >
+                <Square className="h-4 w-4" />
+                Stop
+              </Button>
+            )}
+          </div>
+
+          {/* Microphone Controls */}
+          <div className="flex items-center justify-center gap-4">
+            <Button
+              onClick={handleToggleListening}
+              variant={isListening ? "destructive" : "default"}
+              className="flex items-center gap-2"
+            >
+              {isListening ? (
+                <>
+                  <MicOff className="h-4 w-4" />
+                  Stop Listening
+                </>
+              ) : (
+                <>
+                  <Mic className="h-4 w-4" />
+                  Start Listening
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Error Display */}
+          {pitchError && (
+            <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md text-center">
+              {pitchError}
             </div>
           )}
-          
+
           {/* Pitch Gauge */}
-          <div className="flex justify-center">
-            <PitchGauge
-              cents={pitchData?.cents || 0}
-              isActive={isListening && !!pitchData}
-              targetNote={selectedNote.note}
-            />
-          </div>
-          
-          {/* Score and Progress */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="p-4 text-center">
-              <div className="text-sm text-muted-foreground">Current Note</div>
-              <div className="text-lg font-bold">
-                {pitchData?.note || '--'}
-              </div>
-            </Card>
-            
-            <Card className="p-4 text-center">
-              <div className="text-sm text-muted-foreground">Average Score</div>
-              <div className="text-lg font-bold text-primary">
-                {averageScore > 0 ? `${averageScore}%` : '--'}
-              </div>
-            </Card>
-            
-            <Card className="p-4 text-center">
+          <PitchGauge
+            cents={currentCents}
+            isActive={isListening && pitchData?.note === selectedNote}
+            targetNote={selectedNote}
+          />
+
+          {/* Current Pitch Info */}
+          {isListening && pitchData && (
+            <div className="text-center space-y-2">
               <div className="text-sm text-muted-foreground">
-                {exerciseMode === 'sequence' ? 'Progress' : 'Attempts'}
+                Detected: <span className="font-mono">{pitchData.note}</span>
               </div>
-              <div className="text-lg font-bold">
-                {exerciseMode === 'sequence' 
-                  ? `${currentExerciseIndex + 1}/${PRACTICE_NOTES.length}`
-                  : score.length
-                }
-              </div>
-            </Card>
+              {pitchData.note === selectedNote && (
+                <Badge variant={isInTune ? "default" : "destructive"}>
+                  {isInTune ? "Perfect!" : `${Math.abs(currentCents)} cents ${currentCents > 0 ? 'sharp' : 'flat'}`}
+                </Badge>
+              )}
+            </div>
+          )}
+
+          {/* Score Display */}
+          <div className="flex items-center justify-center gap-6 text-center">
+            <div>
+              <div className="text-2xl font-bold text-primary">{score}</div>
+              <div className="text-sm text-muted-foreground">Perfect Notes</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold">{attempts}</div>
+              <div className="text-sm text-muted-foreground">Total Attempts</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-green-600">{accuracy}%</div>
+              <div className="text-sm text-muted-foreground">Accuracy</div>
+            </div>
           </div>
-          
+
           {/* Instructions */}
-          <div className="text-sm text-muted-foreground text-center space-y-2">
-            <p>
-              1. Click "Play Note" to hear the target pitch
-            </p>
-            <p>
-              2. Click "Start" and sing the note into your microphone
-            </p>
-            <p>
-              3. Watch the gauge to see if you're flat, sharp, or in tune
-            </p>
-            <p>
-              Stay within ±10 cents of the target for best accuracy!
-            </p>
+          <div className="bg-muted p-4 rounded-lg text-sm space-y-2">
+            <h4 className="font-medium">How to use:</h4>
+            <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+              <li>Select a target note by scrolling through the note picker</li>
+              <li>Click "Play Reference" to hear the target pitch</li>
+              <li>Click "Start Listening" to begin pitch detection</li>
+              <li>Sing or play the note and watch the gauge for real-time feedback</li>
+              <li>Stay in the green zone for perfect pitch!</li>
+            </ol>
           </div>
         </CardContent>
       </Card>
