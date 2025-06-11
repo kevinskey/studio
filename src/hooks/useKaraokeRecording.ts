@@ -3,6 +3,7 @@ import { useState, useRef } from 'react';
 import { toast } from 'sonner';
 import { Recording, KaraokeTrack } from '@/types/karaoke';
 import { useAudioContext } from './useAudioContext';
+import { useAutoLevel } from './useAutoLevel';
 
 export const useKaraokeRecording = () => {
   const [isRecording, setIsRecording] = useState(false);
@@ -10,9 +11,14 @@ export const useKaraokeRecording = () => {
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
   const [micPermissionGranted, setMicPermissionGranted] = useState(false);
+  const [autoLevelEnabled, setAutoLevelEnabled] = useState(true);
+  const [currentMicLevel, setCurrentMicLevel] = useState(0);
+  const [currentGain, setCurrentGain] = useState(1.0);
   
   const chunksRef = useRef<Blob[]>([]);
+  const levelUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const { getAudioContext } = useAudioContext();
+  const { setupAutoLevel, stopAutoLevel, getCurrentLevel } = useAutoLevel();
 
   const checkMicrophonePermissions = async () => {
     try {
@@ -60,13 +66,41 @@ export const useKaraokeRecording = () => {
       const audioContext = await getAudioContext();
       const micSource = audioContext.createMediaStreamSource(micStream);
       
-      const micGain = audioContext.createGain();
-      micGain.gain.value = micVolume;
-      
-      micSource.connect(micGain);
+      let finalMicNode: AudioNode;
+
+      if (autoLevelEnabled) {
+        // Setup auto-leveling
+        console.log('Setting up auto-level for microphone');
+        const autoLevelNode = await setupAutoLevel(audioContext, micSource, {
+          targetLevel: 0.7,
+          attackTime: 0.1,
+          releaseTime: 0.3,
+          maxGain: 3.0,
+          minGain: 0.1
+        });
+        
+        if (autoLevelNode) {
+          finalMicNode = autoLevelNode;
+          
+          // Start level monitoring
+          levelUpdateIntervalRef.current = setInterval(() => {
+            const { rms, gain } = getCurrentLevel();
+            setCurrentMicLevel(rms);
+            setCurrentGain(gain);
+          }, 100);
+        } else {
+          finalMicNode = micSource;
+        }
+      } else {
+        // Manual gain control
+        const micGain = audioContext.createGain();
+        micGain.gain.value = micVolume;
+        micSource.connect(micGain);
+        finalMicNode = micGain;
+      }
       
       const destination = audioContext.createMediaStreamDestination();
-      micGain.connect(destination);
+      finalMicNode.connect(destination);
       
       if (trackAudioRef.current && trackLoadedRef.current) {
         try {
@@ -125,7 +159,7 @@ export const useKaraokeRecording = () => {
         }
       }
       
-      toast.success('Recording started! Sing along to the track');
+      toast.success(`Recording started! ${autoLevelEnabled ? 'Auto-level enabled' : 'Manual level control'}`);
     } catch (error) {
       console.error('Error starting recording:', error);
       
@@ -152,9 +186,20 @@ export const useKaraokeRecording = () => {
       audioStream.getTracks().forEach(track => track.stop());
       setAudioStream(null);
     }
+
+    // Stop auto-level processing
+    stopAutoLevel();
+    
+    // Clear level monitoring
+    if (levelUpdateIntervalRef.current) {
+      clearInterval(levelUpdateIntervalRef.current);
+      levelUpdateIntervalRef.current = null;
+    }
     
     setIsRecording(false);
     setMediaRecorder(null);
+    setCurrentMicLevel(0);
+    setCurrentGain(1.0);
     
     if (trackAudioRef.current) {
       trackAudioRef.current.pause();
@@ -162,12 +207,24 @@ export const useKaraokeRecording = () => {
     }
   };
 
+  const toggleAutoLevel = (enabled: boolean) => {
+    setAutoLevelEnabled(enabled);
+    if (!enabled) {
+      setCurrentMicLevel(0);
+      setCurrentGain(1.0);
+    }
+  };
+
   return {
     isRecording,
     recordings,
     micPermissionGranted,
+    autoLevelEnabled,
+    currentMicLevel,
+    currentGain,
     checkMicrophonePermissions,
     startRecording,
-    stopRecording
+    stopRecording,
+    toggleAutoLevel
   };
 };

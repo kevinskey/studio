@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Mic } from 'lucide-react';
@@ -25,9 +24,13 @@ export const KaraokeStudio = () => {
     isRecording,
     recordings,
     micPermissionGranted,
+    autoLevelEnabled,
+    currentMicLevel,
+    currentGain,
     checkMicrophonePermissions,
     startRecording,
-    stopRecording
+    stopRecording,
+    toggleAutoLevel
   } = useKaraokeRecording();
 
   const allTracks = [...customTracks];
@@ -182,6 +185,10 @@ export const KaraokeStudio = () => {
           micVolume={micVolume}
           onTrackVolumeChange={setTrackVolume}
           onMicVolumeChange={setMicVolume}
+          autoLevelEnabled={autoLevelEnabled}
+          onAutoLevelToggle={toggleAutoLevel}
+          currentMicLevel={currentMicLevel}
+          currentGain={currentGain}
         />
       )}
 
@@ -195,7 +202,7 @@ export const KaraokeStudio = () => {
       <RecordingsList recordings={recordings} />
 
       <div className="text-center text-sm text-gray-600">
-        <p>Professional karaoke recording with track mixing</p>
+        <p>Professional karaoke recording with automatic level control</p>
         <p className="mt-1">Upload your own MP3, WAV, or other audio files</p>
       </div>
     </div>
