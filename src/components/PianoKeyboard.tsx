@@ -4,7 +4,7 @@ import { RotateCcw } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePianoKeyboard } from './piano/usePianoKeyboard';
 import { PianoControls } from './piano/PianoControls';
-import { PianoKeyboard } from './piano/PianoKeyboard';
+import { PianoKeyboard as PianoKeyboardLayout } from './piano/PianoKeyboard';
 import { instruments } from './piano/types';
 
 export const PianoKeyboard = () => {
@@ -79,7 +79,7 @@ export const PianoKeyboard = () => {
         </div>
 
         {/* Mobile Piano Keyboard */}
-        <PianoKeyboard
+        <PianoKeyboardLayout
           notes={notes}
           isPlaying={isPlaying}
           onPlayNote={handlePlayNote}
@@ -139,7 +139,7 @@ export const PianoKeyboard = () => {
       )}
 
       {/* Desktop Piano Keyboard */}
-      <PianoKeyboard
+      <PianoKeyboardLayout
         notes={notes}
         isPlaying={isPlaying}
         onPlayNote={handlePlayNote}
