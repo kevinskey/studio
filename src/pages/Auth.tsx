@@ -74,13 +74,10 @@ const Auth = () => {
     }
 
     try {
-      const redirectUrl = `${window.location.origin}/`;
-      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: redirectUrl,
           data: {
             full_name: fullName,
           }
@@ -90,12 +87,13 @@ const Auth = () => {
       if (error) throw error;
 
       if (data.user) {
-        if (data.user.email_confirmed_at) {
-          // User is immediately confirmed
+        // With email confirmation disabled, user should be immediately signed in
+        if (data.session) {
+          // User is immediately signed in
           window.location.href = '/';
         } else {
-          // User needs to confirm email
-          setMessage('Please check your email to confirm your account before signing in.');
+          // Fallback message (shouldn't happen with confirmation disabled)
+          setMessage('Account created successfully! You can now sign in.');
         }
       }
     } catch (error: any) {
