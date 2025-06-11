@@ -32,21 +32,19 @@ export const KaraokeStudio = () => {
   const [trackVolume, setTrackVolume] = useState(0.7);
   const [micVolume, setMicVolume] = useState(1.0);
   const [customTracks, setCustomTracks] = useState<KaraokeTrack[]>([]);
+  const [micPermissionGranted, setMicPermissionGranted] = useState(false);
   
   const trackAudioRef = useRef<HTMLAudioElement | null>(null);
   const recordingAudioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const mixedStreamRef = useRef<MediaStream | null>(null);
+  const trackLoadedRef = useRef(false);
 
-  // Sample karaoke tracks (removed placeholder URLs that don't work)
-  const defaultTracks: KaraokeTrack[] = [];
-
-  const allTracks = [...defaultTracks, ...customTracks];
+  const allTracks = [...customTracks];
 
   useEffect(() => {
-    // Initialize audio element
+    // Initialize audio elements only once
     if (!trackAudioRef.current) {
       trackAudioRef.current = new Audio();
       trackAudioRef.current.crossOrigin = "anonymous";
@@ -58,13 +56,14 @@ export const KaraokeStudio = () => {
       recordingAudioRef.current.preload = "metadata";
     }
 
-    audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    // Check microphone permissions on component mount
+    checkMicrophonePermissions();
     
     return () => {
       if (audioStream) {
         audioStream.getTracks().forEach(track => track.stop());
       }
-      if (audioContextRef.current) {
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         audioContextRef.current.close();
       }
       // Clean up custom track URLs
@@ -76,27 +75,54 @@ export const KaraokeStudio = () => {
     };
   }, []);
 
-  // Update audio source and volume when track changes
+  // Separate effect for track loading to prevent multiple reloads
   useEffect(() => {
-    if (trackAudioRef.current && selectedTrack) {
-      console.log('Loading track:', selectedTrack.title, 'URL:', selectedTrack.url);
+    if (trackAudioRef.current && selectedTrack && !trackLoadedRef.current) {
+      console.log('Loading track:', selectedTrack.title);
       trackAudioRef.current.src = selectedTrack.url;
       trackAudioRef.current.volume = trackVolume;
       
       trackAudioRef.current.onloadeddata = () => {
         console.log('Track loaded successfully');
+        trackLoadedRef.current = true;
       };
       
       trackAudioRef.current.onerror = (e) => {
         console.error('Error loading track:', e);
         toast.error('Failed to load the selected track');
+        trackLoadedRef.current = false;
       };
       
       trackAudioRef.current.onended = () => {
         setIsPlayingTrack(false);
       };
     }
-  }, [selectedTrack, trackVolume]);
+  }, [selectedTrack]);
+
+  // Update volume without reloading track
+  useEffect(() => {
+    if (trackAudioRef.current) {
+      trackAudioRef.current.volume = trackVolume;
+    }
+  }, [trackVolume]);
+
+  const checkMicrophonePermissions = async () => {
+    try {
+      const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+      if (result.state === 'granted') {
+        setMicPermissionGranted(true);
+      } else if (result.state === 'prompt') {
+        // Will be requested when user starts recording
+        setMicPermissionGranted(false);
+      } else {
+        setMicPermissionGranted(false);
+        toast.error('Microphone access denied. Please enable microphone permissions.');
+      }
+    } catch (error) {
+      console.log('Permission API not supported, will request on recording');
+      setMicPermissionGranted(false);
+    }
+  };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -104,13 +130,11 @@ export const KaraokeStudio = () => {
 
     console.log('Uploading file:', file.name, 'Type:', file.type, 'Size:', file.size);
 
-    // Check if it's an audio file
     if (!file.type.startsWith('audio/')) {
       toast.error('Please select an audio file');
       return;
     }
 
-    // Check file size (limit to 50MB)
     if (file.size > 50 * 1024 * 1024) {
       toast.error('File size must be less than 50MB');
       return;
@@ -123,7 +147,7 @@ export const KaraokeStudio = () => {
       console.log('Audio metadata loaded, duration:', audio.duration);
       const newTrack: KaraokeTrack = {
         id: `custom-${Date.now()}`,
-        title: file.name.replace(/\.[^/.]+$/, ""), // Remove file extension
+        title: file.name.replace(/\.[^/.]+$/, ""),
         artist: 'Custom Upload',
         duration: Math.round(audio.duration),
         url,
@@ -132,6 +156,7 @@ export const KaraokeStudio = () => {
 
       setCustomTracks(prev => [...prev, newTrack]);
       setSelectedTrack(newTrack);
+      trackLoadedRef.current = false; // Allow new track to load
       toast.success('Track uploaded successfully!');
     };
 
@@ -141,7 +166,6 @@ export const KaraokeStudio = () => {
       toast.error('Failed to load audio file. Please try a different format.');
     };
 
-    // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -155,10 +179,10 @@ export const KaraokeStudio = () => {
     
     setCustomTracks(prev => prev.filter(t => t.id !== trackId));
     
-    // If the removed track was selected, clear selection
     if (selectedTrack?.id === trackId) {
       setSelectedTrack(null);
       setIsPlayingTrack(false);
+      trackLoadedRef.current = false;
     }
     
     toast.success('Track removed');
@@ -169,6 +193,7 @@ export const KaraokeStudio = () => {
     if (track) {
       setSelectedTrack(track);
       setIsPlayingTrack(false);
+      trackLoadedRef.current = false; // Allow new track to load
       console.log('Selected track:', track.title);
     }
   };
@@ -204,45 +229,63 @@ export const KaraokeStudio = () => {
     }
 
     try {
-      // Get microphone stream
+      console.log('Requesting microphone access...');
+      
+      // Get microphone stream with specific settings
       const micStream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
-          echoCancellation: false, // Keep natural vocal quality
+          echoCancellation: false,
           noiseSuppression: false,
           autoGainControl: false,
+          sampleRate: 44100,
+          channelCount: 1
         } 
       });
       
+      console.log('Microphone access granted');
       setAudioStream(micStream);
+      setMicPermissionGranted(true);
 
-      // Create audio context for mixing
-      const audioContext = audioContextRef.current!;
+      // Initialize audio context if not already done
+      if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+
+      // Resume audio context if suspended
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
+
+      const audioContext = audioContextRef.current;
       const micSource = audioContext.createMediaStreamSource(micStream);
       
       // Create gain nodes for volume control
       const micGain = audioContext.createGain();
-      const trackGain = audioContext.createGain();
-      
       micGain.gain.value = micVolume;
-      trackGain.gain.value = trackVolume;
       
       // Connect microphone
       micSource.connect(micGain);
       
-      // Create destination for mixed audio
+      // Create destination for recording
       const destination = audioContext.createMediaStreamDestination();
       micGain.connect(destination);
       
-      // If track is playing, mix it in
-      if (trackAudioRef.current && isPlayingTrack) {
-        const trackSource = audioContext.createMediaElementSource(trackAudioRef.current);
-        trackSource.connect(trackGain);
-        trackGain.connect(destination);
+      // If track is loaded and ready, mix it in
+      if (trackAudioRef.current && trackLoadedRef.current) {
+        try {
+          const trackSource = audioContext.createMediaElementSource(trackAudioRef.current);
+          const trackGain = audioContext.createGain();
+          trackGain.gain.value = trackVolume;
+          
+          trackSource.connect(trackGain);
+          trackGain.connect(destination);
+          trackGain.connect(audioContext.destination); // Also play through speakers
+        } catch (error) {
+          console.log('Could not mix track audio, recording voice only');
+        }
       }
       
-      mixedStreamRef.current = destination.stream;
-      
-      // Create recorder for mixed stream
+      // Create recorder for the mixed stream
       const recorder = new MediaRecorder(destination.stream, {
         mimeType: 'audio/webm;codecs=opus'
       });
@@ -275,17 +318,30 @@ export const KaraokeStudio = () => {
       setMediaRecorder(recorder);
       setIsRecording(true);
       
-      // Start track playback if not already playing
-      if (!isPlayingTrack && trackAudioRef.current) {
-        trackAudioRef.current.currentTime = 0;
-        await trackAudioRef.current.play();
-        setIsPlayingTrack(true);
+      // Start track playback if not already playing and track is loaded
+      if (!isPlayingTrack && trackAudioRef.current && trackLoadedRef.current) {
+        try {
+          trackAudioRef.current.currentTime = 0;
+          await trackAudioRef.current.play();
+          setIsPlayingTrack(true);
+          console.log('Started track playback with recording');
+        } catch (error) {
+          console.log('Could not start track playback, recording voice only');
+        }
       }
       
       toast.success('Recording started! Sing along to the track');
     } catch (error) {
       console.error('Error starting recording:', error);
-      toast.error('Could not access microphone. Please check permissions.');
+      
+      if (error.name === 'NotAllowedError') {
+        toast.error('Microphone access denied. Please allow microphone permissions and try again.');
+        setMicPermissionGranted(false);
+      } else if (error.name === 'NotFoundError') {
+        toast.error('No microphone found. Please check your audio devices.');
+      } else {
+        toast.error('Could not start recording. Please check your microphone permissions.');
+      }
     }
   };
 
@@ -358,6 +414,18 @@ export const KaraokeStudio = () => {
         onChange={handleFileUpload}
         className="hidden"
       />
+
+      {/* Microphone Permission Status */}
+      {!micPermissionGranted && (
+        <Card className="p-4 bg-yellow-50 border-yellow-200">
+          <div className="flex items-center gap-2 text-yellow-800">
+            <Mic className="h-4 w-4" />
+            <span className="text-sm">
+              Microphone access is required for karaoke recording. Permission will be requested when you start recording.
+            </span>
+          </div>
+        </Card>
+      )}
 
       {/* File Upload Section */}
       <Card className="p-6">
@@ -443,9 +511,6 @@ export const KaraokeStudio = () => {
                 {isPlayingTrack ? 'Pause' : 'Preview'}
               </Button>
             </div>
-            
-            {/* Set the track URL when selected */}
-            {trackAudioRef.current && (trackAudioRef.current.src = selectedTrack.url)}
           </div>
         )}
       </Card>
