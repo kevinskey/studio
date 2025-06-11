@@ -36,7 +36,7 @@ export const usePitchDetection = () => {
     return { note: noteName, cents };
   }, []);
 
-  // Autocorrelation algorithm for pitch detection
+  // Improved autocorrelation algorithm for pitch detection
   const autocorrelate = useCallback((buffer: Float32Array, sampleRate: number) => {
     const SIZE = buffer.length;
     const MAX_SAMPLES = Math.floor(SIZE / 2);
@@ -51,8 +51,8 @@ export const usePitchDetection = () => {
     }
     rms = Math.sqrt(rms / SIZE);
     
-    // Minimum threshold for signal detection
-    if (rms < 0.01) return -1;
+    // Lower threshold for better sensitivity
+    if (rms < 0.005) return -1;
     
     let lastCorrelation = 1;
     for (let offset = 1; offset < MAX_SAMPLES; offset++) {
@@ -63,17 +63,17 @@ export const usePitchDetection = () => {
       }
       correlation = 1 - correlation / MAX_SAMPLES;
       
-      // Look for the peak
-      if (correlation > 0.9 && correlation > lastCorrelation) {
+      // Lower threshold for detection and improved peak finding
+      if (correlation > 0.8 && correlation > lastCorrelation) {
         bestCorrelation = correlation;
         bestOffset = offset;
-      } else if (bestCorrelation > 0.9) {
+      } else if (bestCorrelation > 0.8) {
         break;
       }
       lastCorrelation = correlation;
     }
     
-    if (bestCorrelation > 0.9) {
+    if (bestCorrelation > 0.8) {
       return sampleRate / bestOffset;
     }
     return -1;
@@ -83,6 +83,7 @@ export const usePitchDetection = () => {
   const startListening = useCallback(async () => {
     try {
       setError(null);
+      console.log('Starting pitch detection...');
       
       // Request microphone access
       const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -95,15 +96,16 @@ export const usePitchDetection = () => {
       });
       
       mediaStreamRef.current = stream;
+      console.log('Microphone access granted');
       
       // Create audio context
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       const audioContext = audioContextRef.current;
       
-      // Create analyser
+      // Create analyser with better settings
       analyserRef.current = audioContext.createAnalyser();
       analyserRef.current.fftSize = 4096;
-      analyserRef.current.smoothingTimeConstant = 0.3;
+      analyserRef.current.smoothingTimeConstant = 0.1; // Less smoothing for more responsiveness
       
       // Connect microphone to analyser
       const source = audioContext.createMediaStreamSource(stream);
@@ -114,6 +116,7 @@ export const usePitchDetection = () => {
       bufferRef.current = new Float32Array(bufferLength);
       
       setIsListening(true);
+      console.log('Pitch detection started');
       
       // Start pitch detection loop
       const detectPitch = () => {
@@ -122,9 +125,12 @@ export const usePitchDetection = () => {
         analyserRef.current.getFloatTimeDomainData(bufferRef.current);
         const frequency = autocorrelate(bufferRef.current, audioContext.sampleRate);
         
-        if (frequency > 80 && frequency < 2000) {
+        // Broader frequency range for better detection
+        if (frequency > 60 && frequency < 2500) {
           const { note, cents } = frequencyToNote(frequency);
-          const confidence = Math.min(1, Math.max(0, (frequency - 80) / 1920));
+          const confidence = Math.min(1, Math.max(0, (frequency - 60) / 2440));
+          
+          console.log(`Detected: ${frequency.toFixed(1)}Hz, Note: ${note}, Cents: ${cents}`);
           
           setPitchData({
             frequency,
@@ -133,6 +139,12 @@ export const usePitchDetection = () => {
             confidence
           });
         } else {
+          // Still log when no pitch is detected for debugging
+          if (frequency === -1) {
+            console.log('No pitch detected (signal too weak)');
+          } else {
+            console.log(`Frequency out of range: ${frequency.toFixed(1)}Hz`);
+          }
           setPitchData(null);
         }
         
@@ -149,6 +161,8 @@ export const usePitchDetection = () => {
 
   // Stop pitch detection
   const stopListening = useCallback(() => {
+    console.log('Stopping pitch detection...');
+    
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
@@ -168,6 +182,7 @@ export const usePitchDetection = () => {
     bufferRef.current = null;
     setIsListening(false);
     setPitchData(null);
+    console.log('Pitch detection stopped');
   }, []);
 
   // Cleanup on unmount

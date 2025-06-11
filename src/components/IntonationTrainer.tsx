@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -263,7 +264,20 @@ export const IntonationTrainer = () => {
             </div>
           )}
 
-          {/* Pitch Gauge - Updated to be active when listening */}
+          {/* Debug Info */}
+          {isListening && (
+            <div className="text-center text-sm text-muted-foreground bg-muted p-3 rounded-md">
+              {pitchData ? (
+                <div>
+                  Listening... Detected: {pitchData.frequency.toFixed(1)}Hz ({pitchData.note}, {pitchData.cents > 0 ? '+' : ''}{pitchData.cents} cents)
+                </div>
+              ) : (
+                <div>Listening... No pitch detected. Try singing louder or closer to the microphone.</div>
+              )}
+            </div>
+          )}
+
+          {/* Pitch Gauge - Active when listening */}
           <PitchGauge
             cents={currentCents}
             isActive={isListening && pitchData !== null}
@@ -310,6 +324,9 @@ export const IntonationTrainer = () => {
               <li>Sing or play the note and watch the gauge for real-time feedback</li>
               <li>Stay in the green zone for perfect pitch!</li>
             </ol>
+            <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-yellow-800">
+              <strong>Tip:</strong> If the gauge isn't moving, try singing louder or getting closer to your microphone. Check the debug info above the gauge.
+            </div>
           </div>
         </CardContent>
       </Card>
