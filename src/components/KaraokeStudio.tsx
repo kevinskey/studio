@@ -40,35 +40,26 @@ export const KaraokeStudio = () => {
   const audioContextRef = useRef<AudioContext | null>(null);
   const mixedStreamRef = useRef<MediaStream | null>(null);
 
-  // Sample karaoke tracks (in a real app, these would be loaded from a server)
-  const defaultTracks: KaraokeTrack[] = [
-    {
-      id: '1',
-      title: 'Happy Birthday',
-      artist: 'Traditional',
-      duration: 30,
-      url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
-    },
-    {
-      id: '2',
-      title: 'Twinkle Twinkle Little Star',
-      artist: 'Traditional',
-      duration: 45,
-      url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
-    },
-    {
-      id: '3',
-      title: 'Row Row Row Your Boat',
-      artist: 'Traditional',
-      duration: 40,
-      url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
-    }
-  ];
+  // Sample karaoke tracks (removed placeholder URLs that don't work)
+  const defaultTracks: KaraokeTrack[] = [];
 
   const allTracks = [...defaultTracks, ...customTracks];
 
   useEffect(() => {
+    // Initialize audio element
+    if (!trackAudioRef.current) {
+      trackAudioRef.current = new Audio();
+      trackAudioRef.current.crossOrigin = "anonymous";
+      trackAudioRef.current.preload = "metadata";
+    }
+
+    if (!recordingAudioRef.current) {
+      recordingAudioRef.current = new Audio();
+      recordingAudioRef.current.preload = "metadata";
+    }
+
     audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    
     return () => {
       if (audioStream) {
         audioStream.getTracks().forEach(track => track.stop());
@@ -83,11 +74,35 @@ export const KaraokeStudio = () => {
         }
       });
     };
-  }, [audioStream, customTracks]);
+  }, []);
+
+  // Update audio source and volume when track changes
+  useEffect(() => {
+    if (trackAudioRef.current && selectedTrack) {
+      console.log('Loading track:', selectedTrack.title, 'URL:', selectedTrack.url);
+      trackAudioRef.current.src = selectedTrack.url;
+      trackAudioRef.current.volume = trackVolume;
+      
+      trackAudioRef.current.onloadeddata = () => {
+        console.log('Track loaded successfully');
+      };
+      
+      trackAudioRef.current.onerror = (e) => {
+        console.error('Error loading track:', e);
+        toast.error('Failed to load the selected track');
+      };
+      
+      trackAudioRef.current.onended = () => {
+        setIsPlayingTrack(false);
+      };
+    }
+  }, [selectedTrack, trackVolume]);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    console.log('Uploading file:', file.name, 'Type:', file.type, 'Size:', file.size);
 
     // Check if it's an audio file
     if (!file.type.startsWith('audio/')) {
@@ -105,6 +120,7 @@ export const KaraokeStudio = () => {
     const audio = new Audio(url);
     
     audio.onloadedmetadata = () => {
+      console.log('Audio metadata loaded, duration:', audio.duration);
       const newTrack: KaraokeTrack = {
         id: `custom-${Date.now()}`,
         title: file.name.replace(/\.[^/.]+$/, ""), // Remove file extension
@@ -119,7 +135,8 @@ export const KaraokeStudio = () => {
       toast.success('Track uploaded successfully!');
     };
 
-    audio.onerror = () => {
+    audio.onerror = (e) => {
+      console.error('Error loading audio file:', e);
       URL.revokeObjectURL(url);
       toast.error('Failed to load audio file. Please try a different format.');
     };
@@ -149,22 +166,34 @@ export const KaraokeStudio = () => {
 
   const selectTrack = (trackId: string) => {
     const track = allTracks.find(t => t.id === trackId);
-    setSelectedTrack(track || null);
-    setIsPlayingTrack(false);
+    if (track) {
+      setSelectedTrack(track);
+      setIsPlayingTrack(false);
+      console.log('Selected track:', track.title);
+    }
   };
 
-  const toggleTrackPlayback = () => {
-    if (!selectedTrack || !trackAudioRef.current) return;
+  const toggleTrackPlayback = async () => {
+    if (!selectedTrack || !trackAudioRef.current) {
+      toast.error('No track selected');
+      return;
+    }
 
-    if (isPlayingTrack) {
-      trackAudioRef.current.pause();
+    try {
+      if (isPlayingTrack) {
+        trackAudioRef.current.pause();
+        setIsPlayingTrack(false);
+        console.log('Track paused');
+      } else {
+        console.log('Attempting to play track...');
+        await trackAudioRef.current.play();
+        setIsPlayingTrack(true);
+        console.log('Track playing');
+      }
+    } catch (error) {
+      console.error('Failed to play track:', error);
+      toast.error('Failed to play track. The audio format might not be supported.');
       setIsPlayingTrack(false);
-    } else {
-      trackAudioRef.current.play().catch((error) => {
-        console.error('Failed to play track:', error);
-        toast.error('Failed to play track. Please try again.');
-      });
-      setIsPlayingTrack(true);
     }
   };
 
@@ -249,7 +278,7 @@ export const KaraokeStudio = () => {
       // Start track playback if not already playing
       if (!isPlayingTrack && trackAudioRef.current) {
         trackAudioRef.current.currentTime = 0;
-        trackAudioRef.current.play();
+        await trackAudioRef.current.play();
         setIsPlayingTrack(true);
       }
       
@@ -283,7 +312,10 @@ export const KaraokeStudio = () => {
   const playRecording = (recording: Recording) => {
     if (recordingAudioRef.current) {
       recordingAudioRef.current.src = recording.url;
-      recordingAudioRef.current.play();
+      recordingAudioRef.current.play().catch(error => {
+        console.error('Error playing recording:', error);
+        toast.error('Failed to play recording');
+      });
     }
   };
 
@@ -372,29 +404,25 @@ export const KaraokeStudio = () => {
       {/* Track Selection */}
       <Card className="p-6">
         <h3 className="text-lg font-semibold mb-4">Choose Your Karaoke Track</h3>
-        <Select onValueChange={selectTrack} value={selectedTrack?.id || ""}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select a song to sing along with" />
-          </SelectTrigger>
-          <SelectContent>
-            {customTracks.length > 0 && (
-              <>
-                <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">Your Tracks</div>
-                {customTracks.map((track) => (
-                  <SelectItem key={track.id} value={track.id}>
-                    {track.title} - {track.artist}
-                  </SelectItem>
-                ))}
-                <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">Default Tracks</div>
-              </>
-            )}
-            {defaultTracks.map((track) => (
-              <SelectItem key={track.id} value={track.id}>
-                {track.title} - {track.artist}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {allTracks.length === 0 ? (
+          <div className="text-center p-8 text-muted-foreground">
+            <Upload className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>No tracks available. Please upload an audio file to get started.</p>
+          </div>
+        ) : (
+          <Select onValueChange={selectTrack} value={selectedTrack?.id || ""}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select a song to sing along with" />
+            </SelectTrigger>
+            <SelectContent>
+              {customTracks.map((track) => (
+                <SelectItem key={track.id} value={track.id}>
+                  {track.title} - {track.artist}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         {selectedTrack && (
           <div className="mt-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg">
@@ -494,7 +522,7 @@ export const KaraokeStudio = () => {
           )}
 
           {!isRecording && !selectedTrack && (
-            <p className="text-gray-600">Select a track to start your karaoke session</p>
+            <p className="text-gray-600">Upload and select a track to start your karaoke session</p>
           )}
 
           {!isRecording && selectedTrack && (
@@ -541,7 +569,7 @@ export const KaraokeStudio = () => {
 
       <div className="text-center text-sm text-gray-600">
         <p>Professional karaoke recording with track mixing</p>
-        <p className="mt-1">Upload your own tracks or use the default ones</p>
+        <p className="mt-1">Upload your own MP3, WAV, or other audio files</p>
       </div>
     </div>
   );
