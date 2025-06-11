@@ -7,7 +7,6 @@ import { Music, Mic, Piano, Clock, Download } from 'lucide-react';
 import { PianoKeyboard } from '@/components/PianoKeyboard';
 import { Metronome } from '@/components/Metronome';
 import { PitchPipe } from '@/components/PitchPipe';
-import { MusicNotation } from '@/components/MusicNotation';
 import { RecordingStudio } from '@/components/RecordingStudio';
 import { KaraokeStudio } from '@/components/KaraokeStudio';
 
@@ -26,7 +25,7 @@ const Index = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 mb-6">
+          <TabsList className="grid w-full grid-cols-5 mb-6">
             <TabsTrigger value="piano" className="flex items-center gap-2">
               <Piano className="h-4 w-4" />
               <span className="hidden sm:inline">Piano</span>
@@ -38,10 +37,6 @@ const Index = () => {
             <TabsTrigger value="pitch" className="flex items-center gap-2">
               <Music className="h-4 w-4" />
               <span className="hidden sm:inline">Pitch</span>
-            </TabsTrigger>
-            <TabsTrigger value="notation" className="flex items-center gap-2">
-              <Music className="h-4 w-4" />
-              <span className="hidden sm:inline">Notes</span>
             </TabsTrigger>
             <TabsTrigger value="record" className="flex items-center gap-2">
               <Mic className="h-4 w-4" />
@@ -71,13 +66,6 @@ const Index = () => {
             <Card className="p-6">
               <h2 className="text-2xl font-semibold mb-4 text-center">Pitch Pipe</h2>
               <PitchPipe />
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="notation" className="space-y-6">
-            <Card className="p-6">
-              <h2 className="text-2xl font-semibold mb-4 text-center">Music Notation</h2>
-              <MusicNotation />
             </Card>
           </TabsContent>
 
