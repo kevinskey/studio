@@ -1,8 +1,10 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Recording, KaraokeTrack } from '@/types/karaoke';
 import { useAudioContext } from './useAudioContext';
 import { useAutoLevel } from './useAutoLevel';
+
+const KARAOKE_RECORDINGS_STORAGE_KEY = 'music-studio-karaoke-recordings';
 
 export const useKaraokeRecording = () => {
   const [isRecording, setIsRecording] = useState(false);
@@ -20,6 +22,35 @@ export const useKaraokeRecording = () => {
   const currentTrackElementRef = useRef<HTMLAudioElement | null>(null);
   const { getAudioContext } = useAudioContext();
   const { setupAutoLevel, stopAutoLevel, getCurrentLevel } = useAutoLevel();
+
+  // Load recordings from localStorage on component mount
+  useEffect(() => {
+    const loadStoredRecordings = () => {
+      try {
+        const stored = localStorage.getItem(KARAOKE_RECORDINGS_STORAGE_KEY);
+        if (stored) {
+          const parsedRecordings = JSON.parse(stored).map((recording: any) => ({
+            ...recording,
+            timestamp: new Date(recording.timestamp)
+          }));
+          setRecordings(parsedRecordings);
+        }
+      } catch (error) {
+        console.error('Error loading stored karaoke recordings:', error);
+      }
+    };
+
+    loadStoredRecordings();
+  }, []);
+
+  // Save recordings to localStorage whenever recordings change
+  useEffect(() => {
+    try {
+      localStorage.setItem(KARAOKE_RECORDINGS_STORAGE_KEY, JSON.stringify(recordings));
+    } catch (error) {
+      console.error('Error saving karaoke recordings to localStorage:', error);
+    }
+  }, [recordings]);
 
   const checkMicrophonePermissions = async () => {
     try {
@@ -71,7 +102,6 @@ export const useKaraokeRecording = () => {
       let finalMicNode: AudioNode;
 
       if (autoLevelEnabled) {
-        // Setup auto-leveling
         console.log('Setting up auto-level for microphone');
         const autoLevelNode = await setupAutoLevel(audioContext, micSource, {
           targetLevel: 0.7,
@@ -84,7 +114,6 @@ export const useKaraokeRecording = () => {
         if (autoLevelNode) {
           finalMicNode = autoLevelNode;
           
-          // Start level monitoring
           levelUpdateIntervalRef.current = setInterval(() => {
             const { rms, gain } = getCurrentLevel();
             setCurrentMicLevel(rms);
@@ -94,26 +123,21 @@ export const useKaraokeRecording = () => {
           finalMicNode = micSource;
         }
       } else {
-        // Manual gain control
         const micGain = audioContext.createGain();
         micGain.gain.value = micVolume;
         micSource.connect(micGain);
         finalMicNode = micGain;
       }
       
-      // Connect microphone to destination
       finalMicNode.connect(destination);
       
-      // Mix in track audio if available
       if (trackAudioRef.current && trackLoadedRef.current) {
         try {
           console.log('Setting up track audio mixing');
           
-          // Check if we need to create a new source or if we can reuse the existing one
           const trackElement = trackAudioRef.current;
           
           if (!trackSourceRef.current || currentTrackElementRef.current !== trackElement) {
-            // Clean up old source if it exists
             if (trackSourceRef.current) {
               try {
                 trackSourceRef.current.disconnect();
@@ -122,7 +146,6 @@ export const useKaraokeRecording = () => {
               }
             }
             
-            // Create new source
             trackSourceRef.current = audioContext.createMediaElementSource(trackElement);
             currentTrackElementRef.current = trackElement;
             console.log('Created new track audio source');
@@ -133,13 +156,8 @@ export const useKaraokeRecording = () => {
           const trackGain = audioContext.createGain();
           trackGain.gain.value = trackVolume;
           
-          // Connect track source to gain, then to both recording and speakers
           trackSourceRef.current.connect(trackGain);
-          
-          // Connect track to recording destination
           trackGain.connect(destination);
-          
-          // Connect track to speakers for monitoring
           trackGain.connect(audioContext.destination);
           
           console.log('Track audio mixed into recording successfully');
@@ -174,7 +192,7 @@ export const useKaraokeRecording = () => {
         };
         
         setRecordings(prev => [...prev, newRecording]);
-        toast.success('Karaoke recording saved!');
+        toast.success('Karaoke recording saved and will persist until deleted!');
       };
       
       recorder.start();
@@ -220,17 +238,12 @@ export const useKaraokeRecording = () => {
       setAudioStream(null);
     }
 
-    // Stop auto-level processing
     stopAutoLevel();
     
-    // Clear level monitoring
     if (levelUpdateIntervalRef.current) {
       clearInterval(levelUpdateIntervalRef.current);
       levelUpdateIntervalRef.current = null;
     }
-    
-    // Don't disconnect the track source here - keep it for reuse
-    // trackSourceRef.current = null;
     
     setIsRecording(false);
     setMediaRecorder(null);
@@ -252,6 +265,13 @@ export const useKaraokeRecording = () => {
   };
 
   const removeRecording = (recordingId: string) => {
+    const recordingToDelete = recordings.find(r => r.id === recordingId);
+    
+    if (recordingToDelete) {
+      // Clean up the blob URL to free memory
+      URL.revokeObjectURL(recordingToDelete.url);
+    }
+    
     setRecordings(prev => prev.filter(r => r.id !== recordingId));
   };
 

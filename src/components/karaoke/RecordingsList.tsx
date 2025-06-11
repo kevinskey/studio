@@ -73,13 +73,8 @@ export const RecordingsList: React.FC<RecordingsListProps> = ({
       stopRecording();
     }
 
-    // Clean up the blob URL
-    if (recording.url.startsWith('blob:')) {
-      URL.revokeObjectURL(recording.url);
-    }
-
     onDeleteRecording(recording.id);
-    toast.success('Recording deleted');
+    toast.success('Recording deleted permanently');
   };
 
   const formatDate = (date: Date) => {
@@ -94,7 +89,7 @@ export const RecordingsList: React.FC<RecordingsListProps> = ({
     <>
       <audio ref={recordingAudioRef} className="hidden" />
       <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Your Karaoke Recordings</h3>
+        <h3 className="text-lg font-semibold mb-4">Your Karaoke Recordings ({recordings.length})</h3>
         <div className="space-y-3">
           {recordings.map((recording) => (
             <div
@@ -138,6 +133,9 @@ export const RecordingsList: React.FC<RecordingsListProps> = ({
               </div>
             </div>
           ))}
+        </div>
+        <div className="text-center text-xs text-gray-500 mt-4">
+          Recordings are saved locally and persist until you delete them
         </div>
       </Card>
     </>

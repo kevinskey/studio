@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -13,6 +12,8 @@ interface Recording {
   timestamp: Date;
 }
 
+const RECORDINGS_STORAGE_KEY = 'music-studio-recordings';
+
 export const RecordingStudio = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordings, setRecordings] = useState<Recording[]>([]);
@@ -24,6 +25,35 @@ export const RecordingStudio = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Load recordings from localStorage on component mount
+  useEffect(() => {
+    const loadStoredRecordings = () => {
+      try {
+        const stored = localStorage.getItem(RECORDINGS_STORAGE_KEY);
+        if (stored) {
+          const parsedRecordings = JSON.parse(stored).map((recording: any) => ({
+            ...recording,
+            timestamp: new Date(recording.timestamp)
+          }));
+          setRecordings(parsedRecordings);
+        }
+      } catch (error) {
+        console.error('Error loading stored recordings:', error);
+      }
+    };
+
+    loadStoredRecordings();
+  }, []);
+
+  // Save recordings to localStorage whenever recordings change
+  useEffect(() => {
+    try {
+      localStorage.setItem(RECORDINGS_STORAGE_KEY, JSON.stringify(recordings));
+    } catch (error) {
+      console.error('Error saving recordings to localStorage:', error);
+    }
+  }, [recordings]);
 
   useEffect(() => {
     return () => {
@@ -75,7 +105,7 @@ export const RecordingStudio = () => {
         setRecordings(prev => [...prev, newRecording]);
         setCurrentRecording(newRecording);
         setRecordingTime(0);
-        toast.success('Recording saved successfully!');
+        toast.success('Recording saved and will persist until deleted!');
       };
       
       recorder.start();
@@ -150,7 +180,15 @@ export const RecordingStudio = () => {
   };
 
   const deleteRecording = (id: string) => {
+    const recordingToDelete = recordings.find(r => r.id === id);
+    
+    if (recordingToDelete) {
+      // Clean up the blob URL to free memory
+      URL.revokeObjectURL(recordingToDelete.url);
+    }
+    
     setRecordings(prev => prev.filter(r => r.id !== id));
+    
     if (currentRecording?.id === id) {
       setCurrentRecording(null);
       if (audioRef.current) {
@@ -158,7 +196,7 @@ export const RecordingStudio = () => {
         setIsPlaying(false);
       }
     }
-    toast.success('Recording deleted');
+    toast.success('Recording deleted permanently');
   };
 
   const formatTime = (seconds: number) => {
@@ -221,7 +259,7 @@ export const RecordingStudio = () => {
       {/* Recordings List */}
       {recordings.length > 0 && (
         <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Your Recordings</h3>
+          <h3 className="text-lg font-semibold mb-4">Your Recordings ({recordings.length})</h3>
           <div className="space-y-3">
             {recordings.map((recording) => (
               <div
@@ -271,7 +309,7 @@ export const RecordingStudio = () => {
 
       <div className="text-center text-sm text-gray-600">
         <p>High-quality audio recording with noise suppression</p>
-        <p className="mt-1">Recordings are saved locally and can be downloaded as audio files</p>
+        <p className="mt-1">Recordings are saved locally and persist until you delete them</p>
       </div>
     </div>
   );
