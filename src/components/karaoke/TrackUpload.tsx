@@ -2,10 +2,10 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Upload, X, Save, Loader2 } from 'lucide-react';
+import { Upload, X, Save, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { KaraokeTrack } from '@/types/karaoke';
-import { uploadKaraokeTrack, loadSavedTracks } from '@/services/karaokeService';
+import { uploadKaraokeTrack, loadSavedTracks, deleteKaraokeTrack } from '@/services/karaokeService';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 
@@ -31,6 +31,7 @@ export const TrackUpload: React.FC<TrackUploadProps> = ({
   const [isSaveToLibrary, setIsSaveToLibrary] = useState(true);
   const [savedTracks, setSavedTracks] = useState<KaraokeTrack[]>([]);
   const [isLoadingSaved, setIsLoadingSaved] = useState(false);
+  const [deletingTrackId, setDeletingTrackId] = useState<string | null>(null);
 
   // Load saved tracks from database on component mount
   useEffect(() => {
@@ -153,6 +154,39 @@ export const TrackUpload: React.FC<TrackUploadProps> = ({
     setIsPlayingTrack(false);
   };
 
+  const handleDeleteSavedTrack = async (trackId: string, trackTitle: string) => {
+    if (!confirm(`Are you sure you want to delete "${trackTitle}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingTrackId(trackId);
+    
+    try {
+      const success = await deleteKaraokeTrack(trackId);
+      
+      if (success) {
+        // Remove from local state
+        setSavedTracks(prev => prev.filter(t => t.id !== trackId));
+        
+        // If this was the selected track, clear selection
+        if (selectedTrack?.id === trackId) {
+          setSelectedTrack(null);
+          setIsPlayingTrack(false);
+          trackLoadedRef.current = false;
+        }
+        
+        toast.success('Track deleted successfully');
+      } else {
+        toast.error('Failed to delete track');
+      }
+    } catch (error) {
+      console.error('Error deleting track:', error);
+      toast.error('Failed to delete track');
+    } finally {
+      setDeletingTrackId(null);
+    }
+  };
+
   return (
     <>
       <input
@@ -221,6 +255,22 @@ export const TrackUpload: React.FC<TrackUploadProps> = ({
                     {track.artist} • {Math.floor(track.duration / 60)}:{(track.duration % 60).toString().padStart(2, '0')}
                   </div>
                 </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteSavedTrack(track.id, track.title);
+                  }}
+                  disabled={deletingTrackId === track.id}
+                  className="text-destructive hover:text-destructive"
+                >
+                  {deletingTrackId === track.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                </Button>
               </div>
             ))}
           </div>

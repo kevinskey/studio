@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { KaraokeTrack } from "@/types/karaoke";
 
@@ -102,5 +101,53 @@ export async function loadSavedTracks(): Promise<KaraokeTrack[]> {
   } catch (error) {
     console.error('Failed to load saved tracks:', error);
     return [];
+  }
+}
+
+export async function deleteKaraokeTrack(trackId: string): Promise<boolean> {
+  try {
+    // First, get the track info to find the file URL
+    const { data: track, error: fetchError } = await supabase
+      .from('karaoke_tracks')
+      .select('file_url')
+      .eq('id', trackId)
+      .single();
+    
+    if (fetchError) {
+      console.error('Error fetching track for deletion:', fetchError);
+      return false;
+    }
+    
+    // Extract file path from URL for storage deletion
+    const url = new URL(track.file_url);
+    const filePath = url.pathname.split('/').pop(); // Get the filename from the URL
+    
+    // Delete from database first
+    const { error: dbError } = await supabase
+      .from('karaoke_tracks')
+      .delete()
+      .eq('id', trackId);
+    
+    if (dbError) {
+      console.error('Error deleting track from database:', dbError);
+      return false;
+    }
+    
+    // Delete file from storage
+    if (filePath) {
+      const { error: storageError } = await supabase.storage
+        .from(BUCKET_NAME)
+        .remove([filePath]);
+      
+      if (storageError) {
+        console.error('Error deleting file from storage:', storageError);
+        // Don't return false here since the database record is already deleted
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Delete karaoke track failed:', error);
+    return false;
   }
 }
