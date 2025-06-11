@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Volume2, VolumeX, RotateCcw } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { usePianoSynth, SynthInstrumentType } from '@/hooks/usePianoSynth';
+import { useToast } from '@/hooks/use-toast';
 
 interface Note {
   name: string;
@@ -14,54 +16,26 @@ type InstrumentType = 'grand-piano' | 'upright-piano' | 'epiano' | 'organ' | 'cl
 
 interface InstrumentConfig {
   name: string;
-  waveType: OscillatorType;
-  attackTime: number;
-  releaseTime: number;
-  harmonics?: number[];
 }
 
 const instruments: Record<InstrumentType, InstrumentConfig> = {
   'grand-piano': {
-    name: 'Grand Piano',
-    waveType: 'triangle',
-    attackTime: 0.01,
-    releaseTime: 2.0,
-    harmonics: [1, 0.3, 0.15, 0.05]
+    name: 'Grand Piano'
   },
   'upright-piano': {
-    name: 'Upright Piano',
-    waveType: 'triangle',
-    attackTime: 0.02,
-    releaseTime: 1.5,
-    harmonics: [1, 0.4, 0.2, 0.1]
+    name: 'Upright Piano'
   },
   'epiano': {
-    name: 'Electric Piano',
-    waveType: 'triangle',
-    attackTime: 0.005,
-    releaseTime: 1.0,
-    harmonics: [1, 0.5, 0.25, 0.125]
+    name: 'Electric Piano'
   },
   'organ': {
-    name: 'Organ',
-    waveType: 'sine',
-    attackTime: 0.1,
-    releaseTime: 0.5,
-    harmonics: [1, 0.8, 0.6, 0.4, 0.2]
+    name: 'Organ'
   },
   'clavinet': {
-    name: 'Clavinet',
-    waveType: 'square',
-    attackTime: 0.001,
-    releaseTime: 0.3,
-    harmonics: [1, 0.6, 0.3, 0.15]
+    name: 'Clavinet'
   },
   'synth': {
-    name: 'Synth',
-    waveType: 'sawtooth',
-    attackTime: 0.05,
-    releaseTime: 0.8,
-    harmonics: [1, 0.7, 0.5, 0.3, 0.2]
+    name: 'Synth'
   }
 };
 
@@ -70,8 +44,18 @@ export const PianoKeyboard = () => {
   const [volume, setVolume] = useState(0.5);
   const [isMuted, setIsMuted] = useState(false);
   const [selectedInstrument, setSelectedInstrument] = useState<InstrumentType>('grand-piano');
-  const audioContextRef = useRef<AudioContext | null>(null);
   const isMobile = useIsMobile();
+  const { toast } = useToast();
+  
+  // Use our new WebAssembly-based synthesizer
+  const {
+    playNote,
+    setInstrument,
+    setVolume: setSynthVolume,
+    isInitialized,
+    isLoading,
+    hasSynth
+  } = usePianoSynth({ fallbackToOscillator: true });
 
   // Generate 2 octaves of notes starting from C4 for better mobile experience
   const notes: Note[] = [];
@@ -90,54 +74,37 @@ export const PianoKeyboard = () => {
     }
   }
 
+  // Update synth when instrument changes
   useEffect(() => {
-    audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    return () => {
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
-    };
-  }, []);
+    if (isInitialized) {
+      setInstrument(selectedInstrument as SynthInstrumentType);
+    }
+  }, [selectedInstrument, isInitialized, setInstrument]);
 
-  const playNote = (frequency: number, noteName: string) => {
-    if (!audioContextRef.current || isMuted) return;
+  // Update volume when changed
+  useEffect(() => {
+    if (isInitialized) {
+      setSynthVolume(isMuted ? 0 : volume);
+    }
+  }, [volume, isMuted, isInitialized, setSynthVolume]);
 
-    const instrument = instruments[selectedInstrument];
-    const oscillators: OscillatorNode[] = [];
-    const gainNodes: GainNode[] = [];
+  // Show message when advanced synth is loaded
+  useEffect(() => {
+    if (isInitialized && hasSynth) {
+      toast({
+        title: "Advanced Piano Synthesizer Loaded",
+        description: "Using WebAssembly-based high-quality piano sounds",
+      });
+    }
+  }, [isInitialized, hasSynth, toast]);
 
-    // Create harmonics for richer sound
-    instrument.harmonics?.forEach((harmonic, index) => {
-      const oscillator = audioContextRef.current!.createOscillator();
-      const gainNode = audioContextRef.current!.createGain();
+  const handlePlayNote = (frequency: number, noteName: string) => {
+    if (isMuted) return;
 
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContextRef.current!.destination);
-
-      oscillator.frequency.setValueAtTime(
-        frequency * (index + 1), 
-        audioContextRef.current!.currentTime
-      );
-      oscillator.type = instrument.waveType;
-
-      const harmonicVolume = volume * 0.3 * harmonic;
-      gainNode.gain.setValueAtTime(0, audioContextRef.current!.currentTime);
-      gainNode.gain.linearRampToValueAtTime(
-        harmonicVolume, 
-        audioContextRef.current!.currentTime + instrument.attackTime
-      );
-      gainNode.gain.exponentialRampToValueAtTime(
-        0.001, 
-        audioContextRef.current!.currentTime + instrument.releaseTime
-      );
-
-      oscillator.start(audioContextRef.current!.currentTime);
-      oscillator.stop(audioContextRef.current!.currentTime + instrument.releaseTime);
-
-      oscillators.push(oscillator);
-      gainNodes.push(gainNode);
-    });
-
+    // Play the note using our synthesizer
+    playNote(noteName);
+    
+    // Visual feedback
     setIsPlaying(noteName);
     setTimeout(() => setIsPlaying(null), 200);
   };
@@ -229,9 +196,9 @@ export const PianoKeyboard = () => {
                   }}
                   onTouchStart={(e) => {
                     e.preventDefault();
-                    playNote(note.frequency, note.name);
+                    handlePlayNote(note.frequency, note.name);
                   }}
-                  onMouseDown={() => playNote(note.frequency, note.name)}
+                  onMouseDown={() => handlePlayNote(note.frequency, note.name)}
                 >
                   <span className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 font-medium pointer-events-none">
                     {note.name.replace(/\d/, '')}
@@ -279,9 +246,9 @@ export const PianoKeyboard = () => {
                         }}
                         onTouchStart={(e) => {
                           e.preventDefault();
-                          playNote(blackKey.frequency, blackKey.name);
+                          handlePlayNote(blackKey.frequency, blackKey.name);
                         }}
-                        onMouseDown={() => playNote(blackKey.frequency, blackKey.name)}
+                        onMouseDown={() => handlePlayNote(blackKey.frequency, blackKey.name)}
                       >
                         <span className="absolute bottom-3 left-1/2 transform -translate-x-1/2 text-xs text-white font-medium pointer-events-none">
                           {blackKey.name.replace(/\d/, '')}
@@ -298,12 +265,13 @@ export const PianoKeyboard = () => {
         <div className="text-center text-sm text-muted-foreground">
           <p>Tap the keys to play notes</p>
           <p className="mt-1">Current instrument: {instruments[selectedInstrument].name}</p>
+          {hasSynth && <p className="mt-1 text-green-600">✓ Using advanced WebAssembly synthesizer</p>}
         </div>
       </div>
     );
   }
 
-  // Desktop layout (unchanged)
+  // Desktop layout
   return (
     <div className="w-full space-y-6">
       {/* Sound Controller */}
@@ -351,6 +319,18 @@ export const PianoKeyboard = () => {
         </div>
       </div>
 
+      {/* Status indicator for WebAssembly synth */}
+      {isLoading ? (
+        <div className="bg-blue-50 text-blue-800 p-3 rounded-md text-center text-sm">
+          Loading advanced piano synthesizer...
+        </div>
+      ) : hasSynth ? (
+        <div className="bg-green-50 text-green-800 p-3 rounded-md text-center text-sm flex items-center justify-center gap-2">
+          <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+          Using high-quality WebAssembly synthesizer for realistic piano sounds
+        </div>
+      ) : null}
+
       {/* Realistic Piano Keyboard */}
       <div className="relative w-full overflow-hidden bg-gray-900 p-2 rounded-lg shadow-2xl">
         <style>{`
@@ -377,10 +357,10 @@ export const PianoKeyboard = () => {
                   width: 'var(--white-key-width)',
                   borderLeft: index === 0 ? '1px solid #d1d5db' : 'none'
                 }}
-                onMouseDown={() => playNote(note.frequency, note.name)}
+                onMouseDown={() => handlePlayNote(note.frequency, note.name)}
                 onTouchStart={(e) => {
                   e.preventDefault();
-                  playNote(note.frequency, note.name);
+                  handlePlayNote(note.frequency, note.name);
                 }}
               >
                 <span className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 font-medium pointer-events-none">
@@ -427,10 +407,10 @@ export const PianoKeyboard = () => {
                         left: 'calc(50% + var(--white-key-width) * 0.2)',
                         transform: 'translateX(-50%)'
                       }}
-                      onMouseDown={() => playNote(blackKey.frequency, blackKey.name)}
+                      onMouseDown={() => handlePlayNote(blackKey.frequency, blackKey.name)}
                       onTouchStart={(e) => {
                         e.preventDefault();
-                        playNote(blackKey.frequency, blackKey.name);
+                        handlePlayNote(blackKey.frequency, blackKey.name);
                       }}
                     >
                       <span className="absolute bottom-3 left-1/2 transform -translate-x-1/2 text-xs text-white font-medium pointer-events-none">
