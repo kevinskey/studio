@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +15,8 @@ export const IntonationTrainer = () => {
   const [practiceMode, setPracticeMode] = useState<'single' | 'sequence'>('single');
   const [score, setScore] = useState(0);
   const [attempts, setAttempts] = useState(0);
+  const currentNoteRef = useRef<string | null>(null);
+  const playbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const {
     isListening,
@@ -46,24 +48,85 @@ export const IntonationTrainer = () => {
 
   const notes = generateNotes();
 
+  // Cleanup function to stop all audio
+  const cleanupAudio = useCallback(async () => {
+    console.log('IntonationTrainer: Cleaning up audio...');
+    
+    // Clear any pending timeouts
+    if (playbackTimeoutRef.current) {
+      clearTimeout(playbackTimeoutRef.current);
+      playbackTimeoutRef.current = null;
+    }
+    
+    // Stop currently playing note
+    if (currentNoteRef.current) {
+      try {
+        await stopNote(currentNoteRef.current);
+      } catch (error) {
+        console.error('Error stopping note during cleanup:', error);
+      }
+      currentNoteRef.current = null;
+    }
+    
+    // Stop the selected note as well
+    try {
+      await stopNote(selectedNote);
+    } catch (error) {
+      console.error('Error stopping selected note during cleanup:', error);
+    }
+    
+    setIsPlayingReference(false);
+  }, [stopNote, selectedNote]);
+
+  // Cleanup on unmount or when switching notes
+  useEffect(() => {
+    return () => {
+      cleanupAudio();
+    };
+  }, [cleanupAudio]);
+
+  // Cleanup when selected note changes
+  useEffect(() => {
+    cleanupAudio();
+  }, [selectedNote, cleanupAudio]);
+
   const playReferenceNote = async () => {
     if (!synthReady) return;
     
-    setIsPlayingReference(true);
-    await playNote(selectedNote, 80);
+    // Stop any currently playing note first
+    await cleanupAudio();
     
-    // Stop the note after 2 seconds
-    setTimeout(async () => {
-      await stopNote(selectedNote);
+    try {
+      setIsPlayingReference(true);
+      currentNoteRef.current = selectedNote;
+      
+      console.log('Playing reference note:', selectedNote);
+      await playNote(selectedNote, 80);
+      
+      // Stop the note after 2 seconds
+      playbackTimeoutRef.current = setTimeout(async () => {
+        try {
+          await stopNote(selectedNote);
+          currentNoteRef.current = null;
+          setIsPlayingReference(false);
+          console.log('Reference note stopped automatically');
+        } catch (error) {
+          console.error('Error auto-stopping reference note:', error);
+        }
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Error playing reference note:', error);
       setIsPlayingReference(false);
-    }, 2000);
+      currentNoteRef.current = null;
+    }
   };
 
   const stopReferenceNote = async () => {
     if (!synthReady) return;
     
-    await stopNote(selectedNote);
-    setIsPlayingReference(false);
+    console.log('Manually stopping reference note');
+    await cleanupAudio();
   };
 
   const handleToggleListening = () => {
@@ -77,6 +140,12 @@ export const IntonationTrainer = () => {
   const resetScore = () => {
     setScore(0);
     setAttempts(0);
+  };
+
+  const handleNoteSelection = async (note: string) => {
+    // Clean up before changing notes
+    await cleanupAudio();
+    setSelectedNote(note);
   };
 
   // Check if current pitch matches selected note
@@ -126,7 +195,7 @@ export const IntonationTrainer = () => {
                     variant={selectedNote === note ? "default" : "outline"}
                     size="sm"
                     className="flex-shrink-0 min-w-[60px]"
-                    onClick={() => setSelectedNote(note)}
+                    onClick={() => handleNoteSelection(note)}
                   >
                     {note}
                   </Button>
