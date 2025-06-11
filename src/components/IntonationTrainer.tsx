@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,6 +16,7 @@ export const IntonationTrainer = () => {
   const [attempts, setAttempts] = useState(0);
   const currentNoteRef = useRef<string | null>(null);
   const playbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
 
   const {
     isListening,
@@ -86,11 +86,14 @@ export const IntonationTrainer = () => {
     console.log('IntonationTrainer: Emergency stop completed');
   }, [stopNote, resetAudio]);
 
-  // Cleanup function - only called on unmount
-  const cleanupAudio = useCallback(async () => {
-    console.log('IntonationTrainer: Cleaning up audio on unmount...');
+  // Only cleanup on actual unmount
+  useEffect(() => {
+    isMountedRef.current = true;
     
-    try {
+    return () => {
+      console.log('IntonationTrainer: Component unmounting - cleaning up...');
+      isMountedRef.current = false;
+      
       // Clear any pending timeouts
       if (playbackTimeoutRef.current) {
         clearTimeout(playbackTimeoutRef.current);
@@ -99,26 +102,13 @@ export const IntonationTrainer = () => {
       
       // Stop currently playing note
       if (currentNoteRef.current) {
-        try {
-          await stopNote(currentNoteRef.current);
-        } catch (error) {
-          console.error('Error stopping note during cleanup:', error);
-        }
+        stopNote(currentNoteRef.current).catch(console.error);
         currentNoteRef.current = null;
       }
       
       setIsPlayingReference(false);
-    } catch (error) {
-      console.error('Error during cleanup:', error);
-    }
-  }, [stopNote]);
-
-  // Cleanup on unmount only
-  useEffect(() => {
-    return () => {
-      cleanupAudio();
     };
-  }, [cleanupAudio]);
+  }, []); // Empty dependency array - only runs on mount/unmount
 
   const toggleReferenceNote = async () => {
     if (!synthReady) {
@@ -168,15 +158,19 @@ export const IntonationTrainer = () => {
         // Stop the note after 2 seconds
         playbackTimeoutRef.current = setTimeout(async () => {
           try {
-            if (currentNoteRef.current === selectedNote) {
+            if (currentNoteRef.current === selectedNote && isMountedRef.current) {
               await stopNote(selectedNote);
               currentNoteRef.current = null;
             }
-            setIsPlayingReference(false);
+            if (isMountedRef.current) {
+              setIsPlayingReference(false);
+            }
             console.log('Reference note stopped automatically');
           } catch (error) {
             console.error('Error auto-stopping reference note:', error);
-            setIsPlayingReference(false);
+            if (isMountedRef.current) {
+              setIsPlayingReference(false);
+            }
           }
         }, 2000);
         
