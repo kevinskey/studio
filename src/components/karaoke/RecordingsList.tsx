@@ -1,8 +1,8 @@
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Play, Download } from 'lucide-react';
+import { Play, Download, Square } from 'lucide-react';
 import { toast } from 'sonner';
 import { Recording } from '@/types/karaoke';
 
@@ -12,19 +12,34 @@ interface RecordingsListProps {
 
 export const RecordingsList: React.FC<RecordingsListProps> = ({ recordings }) => {
   const recordingAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [playingRecordingId, setPlayingRecordingId] = useState<string | null>(null);
 
   if (!recordingAudioRef.current) {
     recordingAudioRef.current = new Audio();
     recordingAudioRef.current.preload = "metadata";
+    
+    recordingAudioRef.current.onended = () => {
+      setPlayingRecordingId(null);
+    };
   }
 
   const playRecording = (recording: Recording) => {
     if (recordingAudioRef.current) {
       recordingAudioRef.current.src = recording.url;
-      recordingAudioRef.current.play().catch(error => {
+      recordingAudioRef.current.play().then(() => {
+        setPlayingRecordingId(recording.id);
+      }).catch(error => {
         console.error('Error playing recording:', error);
         toast.error('Failed to play recording');
       });
+    }
+  };
+
+  const stopRecording = () => {
+    if (recordingAudioRef.current) {
+      recordingAudioRef.current.pause();
+      recordingAudioRef.current.currentTime = 0;
+      setPlayingRecordingId(null);
     }
   };
 
@@ -71,9 +86,15 @@ export const RecordingsList: React.FC<RecordingsListProps> = ({ recordings }) =>
               </div>
 
               <div className="flex items-center gap-2">
-                <Button size="sm" variant="outline" onClick={() => playRecording(recording)}>
-                  <Play className="h-4 w-4" />
-                </Button>
+                {playingRecordingId === recording.id ? (
+                  <Button size="sm" variant="outline" onClick={stopRecording}>
+                    <Square className="h-4 w-4" />
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={() => playRecording(recording)}>
+                    <Play className="h-4 w-4" />
+                  </Button>
+                )}
                 
                 <Button
                   size="sm"
