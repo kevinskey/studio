@@ -300,9 +300,9 @@ export const PianoKeyboard = () => {
           <p>Swipe left/right to change octaves • Current: C{currentOctave} to C{currentOctave + 2}</p>
         </div>
 
-        {/* Mobile Horizontal Piano - 3 Octaves */}
+        {/* Mobile Horizontal Piano - 3 Octaves - Full Width */}
         <div 
-          className="relative w-full overflow-x-auto bg-gray-900 p-2 rounded-lg shadow-2xl"
+          className="relative w-screen -mx-4 bg-gray-900 p-2 shadow-2xl"
           onTouchStart={(e) => {
             handleTouchStart(e);
             // Initialize audio on first touch for iOS
@@ -315,16 +315,16 @@ export const PianoKeyboard = () => {
         >
           <style>{`
             .piano-mobile {
-              --key-width: 45px;
+              --key-width: calc(100vw / ${whiteKeys.length});
               --key-height: 160px;
-              --black-key-width: 30px;
+              --black-key-width: calc(var(--key-width) * 0.6);
               --black-key-height: 100px;
             }
           `}</style>
           
-          <div className="piano-mobile relative flex" style={{ minWidth: `calc(${whiteKeys.length} * 45px)` }}>
+          <div className="piano-mobile relative flex w-full">
             {/* White Keys */}
-            <div className="flex">
+            <div className="flex w-full">
               {whiteKeys.map((note, index) => (
                 <button
                   key={note.name}
@@ -358,7 +358,7 @@ export const PianoKeyboard = () => {
             </div>
 
             {/* Black Keys */}
-            <div className="absolute top-0 left-0 flex pointer-events-none">
+            <div className="absolute top-0 left-0 flex w-full pointer-events-none">
               {whiteKeys.map((whiteNote, whiteIndex) => {
                 const noteWithoutOctave = whiteNote.name.replace(/\d/, '');
                 const hasBlackKeyAfter = ['C', 'D', 'F', 'G', 'A'].includes(noteWithoutOctave);
@@ -391,7 +391,7 @@ export const PianoKeyboard = () => {
                         style={{
                           width: 'var(--black-key-width)',
                           height: 'var(--black-key-height)',
-                          left: 'calc(50% + 9px)',
+                          left: 'calc(50% + var(--key-width) * 0.2)',
                           transform: 'translateX(-50%)'
                         }}
                         onTouchStart={(e) => {
@@ -522,14 +522,9 @@ export const PianoKeyboard = () => {
         </div>
       )}
 
-      {/* Octave indicator */}
-      <div className="text-center text-sm text-muted-foreground">
-        <p>Current range: C{currentOctave} to C{currentOctave + 2} - Use arrow buttons or swipe to change range</p>
-      </div>
-
-      {/* Realistic Piano Keyboard - 3 Octaves */}
+      {/* Realistic Piano Keyboard - 3 Octaves - Full Width */}
       <div 
-        className="relative w-full overflow-hidden bg-gray-900 p-2 rounded-lg shadow-2xl"
+        className="relative w-screen -mx-4 bg-gray-900 p-2 shadow-2xl"
         onTouchStart={(e) => {
           handleTouchStart(e);
           // Initialize audio on first touch for iOS
@@ -542,14 +537,14 @@ export const PianoKeyboard = () => {
       >
         <style>{`
           .piano-container {
-            --white-key-width: max(calc(100vw / 63 - 2px), 20px);
+            --white-key-width: calc(100vw / ${whiteKeys.length});
             --black-key-width: calc(var(--white-key-width) * 0.6);
-            --white-key-height: max(calc(var(--white-key-width) * 6), 180px);
+            --white-key-height: max(calc(var(--white-key-width) * 4), 180px);
             --black-key-height: calc(var(--white-key-height) * 0.6);
           }
         `}</style>
         
-        <div className="piano-container relative w-full" style={{ height: 'max(calc(max(calc(100vw / 63 - 2px), 20px) * 6), 180px)' }}>
+        <div className="piano-container relative w-full" style={{ height: 'max(calc(calc(100vw / 21) * 4), 180px)' }}>
           {/* White Keys */}
           <div className="flex w-full h-full">
             {whiteKeys.map((note, index) => (
