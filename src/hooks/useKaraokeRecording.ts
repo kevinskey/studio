@@ -17,6 +17,7 @@ export const useKaraokeRecording = () => {
   
   const chunksRef = useRef<Blob[]>([]);
   const levelUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const trackSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const { getAudioContext } = useAudioContext();
   const { setupAutoLevel, stopAutoLevel, getCurrentLevel } = useAutoLevel();
 
@@ -107,13 +108,25 @@ export const useKaraokeRecording = () => {
       if (trackAudioRef.current && trackLoadedRef.current) {
         try {
           console.log('Setting up track audio mixing');
-          const trackSource = audioContext.createMediaElementSource(trackAudioRef.current);
+          
+          // Only create a new source if we don't have one or if it's disconnected
+          if (!trackSourceRef.current) {
+            trackSourceRef.current = audioContext.createMediaElementSource(trackAudioRef.current);
+          }
+          
           const trackGain = audioContext.createGain();
           trackGain.gain.value = trackVolume;
           
-          trackSource.connect(trackGain);
-          // Connect track to both destination (for recording) and speakers (for monitoring)
+          // Create a splitter to send audio to both recording and speakers
+          const splitter = audioContext.createGain();
+          
+          trackSourceRef.current.connect(splitter);
+          splitter.connect(trackGain);
+          
+          // Connect track to recording destination
           trackGain.connect(destination);
+          
+          // Connect track to speakers for monitoring
           trackGain.connect(audioContext.destination);
           
           console.log('Track audio mixed into recording');
@@ -201,6 +214,9 @@ export const useKaraokeRecording = () => {
       clearInterval(levelUpdateIntervalRef.current);
       levelUpdateIntervalRef.current = null;
     }
+    
+    // Clean up track source reference
+    trackSourceRef.current = null;
     
     setIsRecording(false);
     setMediaRecorder(null);
