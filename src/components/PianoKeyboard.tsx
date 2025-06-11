@@ -62,26 +62,29 @@ export const PianoKeyboard = () => {
     hasSynth
   } = usePianoSynth({ fallbackToOscillator: true });
 
-  // Generate notes for the current octave
-  const generateNotesForOctave = (octave: number): Note[] => {
+  // Generate notes for 3 octaves starting from the current octave
+  const generateNotesFor3Octaves = (startOctave: number): Note[] => {
     const notes: Note[] = [];
     const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
     const baseFrequency = 16.35; // C0
 
-    for (let i = 0; i < noteNames.length; i++) {
-      const noteName = noteNames[i];
-      const frequency = baseFrequency * Math.pow(2, (octave * 12 + i) / 12);
-      notes.push({
-        name: `${noteName}${octave}`,
-        frequency,
-        isSharp: noteName.includes('#')
-      });
+    // Generate 3 octaves
+    for (let octave = startOctave; octave < startOctave + 3; octave++) {
+      for (let i = 0; i < noteNames.length; i++) {
+        const noteName = noteNames[i];
+        const frequency = baseFrequency * Math.pow(2, (octave * 12 + i) / 12);
+        notes.push({
+          name: `${noteName}${octave}`,
+          frequency,
+          isSharp: noteName.includes('#')
+        });
+      }
     }
 
     return notes;
   };
 
-  const notes = generateNotesForOctave(currentOctave);
+  const notes = generateNotesFor3Octaves(currentOctave);
 
   // Initialize audio context on first user interaction for iOS
   const initializeAudioContext = async () => {
@@ -134,8 +137,8 @@ export const PianoKeyboard = () => {
     const minSwipeDistance = 50;
 
     if (distance > minSwipeDistance) {
-      // Swipe left - next octave
-      setCurrentOctave(prev => Math.min(7, prev + 1));
+      // Swipe left - next octave (but limit to prevent going too high with 3 octaves)
+      setCurrentOctave(prev => Math.min(5, prev + 1)); // Max 5 so we don't go beyond C7
     } else if (distance < -minSwipeDistance) {
       // Swipe right - previous octave
       setCurrentOctave(prev => Math.max(1, prev - 1));
@@ -245,7 +248,7 @@ export const PianoKeyboard = () => {
 
           {/* Octave Selection */}
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Octave:</span>
+            <span className="text-sm font-medium">Start Octave:</span>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
@@ -255,12 +258,12 @@ export const PianoKeyboard = () => {
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="w-8 text-center font-mono">{currentOctave}</span>
+              <span className="w-16 text-center font-mono">C{currentOctave}-C{currentOctave + 2}</span>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentOctave(prev => Math.min(7, prev + 1))}
-                disabled={currentOctave >= 7}
+                onClick={() => setCurrentOctave(prev => Math.min(5, prev + 1))}
+                disabled={currentOctave >= 5}
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -294,10 +297,10 @@ export const PianoKeyboard = () => {
 
         {/* Swipe instruction */}
         <div className="text-center text-sm text-muted-foreground">
-          <p>Swipe left/right to change octaves • Current: C{currentOctave}</p>
+          <p>Swipe left/right to change octaves • Current: C{currentOctave} to C{currentOctave + 2}</p>
         </div>
 
-        {/* Mobile Horizontal Piano */}
+        {/* Mobile Horizontal Piano - 3 Octaves */}
         <div 
           className="relative w-full overflow-x-auto bg-gray-900 p-2 rounded-lg shadow-2xl"
           onTouchStart={(e) => {
@@ -312,14 +315,14 @@ export const PianoKeyboard = () => {
         >
           <style>{`
             .piano-mobile {
-              --key-width: 60px;
-              --key-height: 180px;
-              --black-key-width: 40px;
-              --black-key-height: 120px;
+              --key-width: 45px;
+              --key-height: 160px;
+              --black-key-width: 30px;
+              --black-key-height: 100px;
             }
           `}</style>
           
-          <div className="piano-mobile relative flex" style={{ minWidth: `calc(${whiteKeys.length} * 60px)` }}>
+          <div className="piano-mobile relative flex" style={{ minWidth: `calc(${whiteKeys.length} * 45px)` }}>
             {/* White Keys */}
             <div className="flex">
               {whiteKeys.map((note, index) => (
@@ -347,7 +350,7 @@ export const PianoKeyboard = () => {
                   onMouseUp={() => handleStopNote(note.name)}
                   onMouseLeave={() => handleStopNote(note.name)}
                 >
-                  <span className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 font-medium pointer-events-none">
+                  <span className="absolute bottom-2 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 font-medium pointer-events-none">
                     {note.name.replace(/\d/, '')}
                   </span>
                 </button>
@@ -388,7 +391,7 @@ export const PianoKeyboard = () => {
                         style={{
                           width: 'var(--black-key-width)',
                           height: 'var(--black-key-height)',
-                          left: 'calc(50% + 12px)',
+                          left: 'calc(50% + 9px)',
                           transform: 'translateX(-50%)'
                         }}
                         onTouchStart={(e) => {
@@ -403,7 +406,7 @@ export const PianoKeyboard = () => {
                         onMouseUp={() => handleStopNote(blackKey.name)}
                         onMouseLeave={() => handleStopNote(blackKey.name)}
                       >
-                        <span className="absolute bottom-3 left-1/2 transform -translate-x-1/2 text-xs text-white font-medium pointer-events-none">
+                        <span className="absolute bottom-2 left-1/2 transform -translate-x-1/2 text-xs text-white font-medium pointer-events-none">
                           {blackKey.name.replace(/\d/, '')}
                         </span>
                       </button>
@@ -418,6 +421,7 @@ export const PianoKeyboard = () => {
         <div className="text-center text-sm text-muted-foreground">
           <p>Tap the keys to play notes</p>
           <p className="mt-1">Current instrument: {instruments[selectedInstrument].name}</p>
+          <p className="mt-1">Showing 3 octaves: C{currentOctave} to C{currentOctave + 2}</p>
           {hasSynth && <p className="mt-1 text-green-600">✓ Using advanced WebAssembly synthesizer</p>}
           {isIOS && audioContextInitialized && <p className="mt-1 text-green-600">✓ Audio enabled for iOS</p>}
           {isIOS && !audioContextInitialized && <p className="mt-1 text-orange-600">⚠️ Tap a key to enable audio</p>}
@@ -464,7 +468,7 @@ export const PianoKeyboard = () => {
 
           {/* Octave Selection for Desktop */}
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">Octave:</span>
+            <span className="text-sm font-medium">Start Octave:</span>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
@@ -474,12 +478,12 @@ export const PianoKeyboard = () => {
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="w-8 text-center font-mono">{currentOctave}</span>
+              <span className="w-16 text-center font-mono">C{currentOctave}-C{currentOctave + 2}</span>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentOctave(prev => Math.min(7, prev + 1))}
-                disabled={currentOctave >= 7}
+                onClick={() => setCurrentOctave(prev => Math.min(5, prev + 1))}
+                disabled={currentOctave >= 5}
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -527,10 +531,10 @@ export const PianoKeyboard = () => {
 
       {/* Octave indicator */}
       <div className="text-center text-sm text-muted-foreground">
-        <p>Current octave: C{currentOctave} - Use arrow buttons or swipe to change octaves (C1 to C7)</p>
+        <p>Current range: C{currentOctave} to C{currentOctave + 2} - Use arrow buttons or swipe to change range</p>
       </div>
 
-      {/* Realistic Piano Keyboard */}
+      {/* Realistic Piano Keyboard - 3 Octaves */}
       <div 
         className="relative w-full overflow-hidden bg-gray-900 p-2 rounded-lg shadow-2xl"
         onTouchStart={(e) => {
@@ -545,14 +549,14 @@ export const PianoKeyboard = () => {
       >
         <style>{`
           .piano-container {
-            --white-key-width: max(calc(100vw / 21 - 4px), 44px);
+            --white-key-width: max(calc(100vw / 63 - 2px), 20px);
             --black-key-width: calc(var(--white-key-width) * 0.6);
-            --white-key-height: max(calc(var(--white-key-width) * 6), 200px);
+            --white-key-height: max(calc(var(--white-key-width) * 6), 180px);
             --black-key-height: calc(var(--white-key-height) * 0.6);
           }
         `}</style>
         
-        <div className="piano-container relative w-full" style={{ height: 'max(calc(max(calc(100vw / 21 - 4px), 44px) * 6), 200px)' }}>
+        <div className="piano-container relative w-full" style={{ height: 'max(calc(max(calc(100vw / 63 - 2px), 20px) * 6), 180px)' }}>
           {/* White Keys */}
           <div className="flex w-full h-full">
             {whiteKeys.map((note, index) => (
@@ -579,7 +583,7 @@ export const PianoKeyboard = () => {
                   handleStopNote(note.name);
                 }}
               >
-                <span className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 font-medium pointer-events-none">
+                <span className="absolute bottom-2 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 font-medium pointer-events-none">
                   {note.name.replace(/\d/, '')}
                 </span>
               </button>
@@ -635,7 +639,7 @@ export const PianoKeyboard = () => {
                         handleStopNote(blackKey.name);
                       }}
                     >
-                      <span className="absolute bottom-3 left-1/2 transform -translate-x-1/2 text-xs text-white font-medium pointer-events-none">
+                      <span className="absolute bottom-2 left-1/2 transform -translate-x-1/2 text-xs text-white font-medium pointer-events-none">
                         {blackKey.name.replace(/\d/, '')}
                       </span>
                     </button>
@@ -650,6 +654,7 @@ export const PianoKeyboard = () => {
       <div className="text-center text-sm text-muted-foreground">
         <p>Tap or click the keys to play notes</p>
         <p className="mt-1">Current instrument: {instruments[selectedInstrument].name}</p>
+        <p className="mt-1">Showing 3 octaves: C{currentOctave} to C{currentOctave + 2}</p>
         {isIOS && audioContextInitialized && <p className="mt-1 text-green-600">✓ Audio enabled for iOS</p>}
         {isIOS && !audioContextInitialized && <p className="mt-1 text-orange-600">⚠️ Tap a key to enable audio</p>}
       </div>
