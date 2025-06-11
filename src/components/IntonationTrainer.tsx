@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -263,10 +262,10 @@ export const IntonationTrainer = () => {
             </div>
           )}
 
-          {/* Pitch Gauge */}
+          {/* Pitch Gauge - Updated to be active when listening */}
           <PitchGauge
             cents={currentCents}
-            isActive={isListening && pitchData?.note === selectedNote}
+            isActive={isListening && pitchData !== null}
             targetNote={selectedNote}
           />
 
