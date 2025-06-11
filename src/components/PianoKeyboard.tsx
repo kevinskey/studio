@@ -1,7 +1,6 @@
 
 import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Volume2, VolumeX, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAudioContext } from '@/hooks/useAudioContext';
 
@@ -90,9 +89,20 @@ export const PianoKeyboard = () => {
 
     let context = audioContext;
     if (!context || !isAudioEnabled) {
-      context = await initializeAudio();
-      if (!context) return;
+      try {
+        context = await initializeAudio();
+        if (!context) {
+          console.error('Failed to initialize audio context');
+          return;
+        }
+      } catch (error) {
+        console.error('Audio initialization failed:', error);
+        return;
+      }
     }
+
+    console.log('Audio context state:', context.state);
+    console.log('Attempting to play note:', noteName, 'at', frequency.toFixed(2), 'Hz');
 
     try {
       // Stop any currently playing note
@@ -111,13 +121,14 @@ export const PianoKeyboard = () => {
       oscillator.type = 'triangle';
 
       // Set volume with smooth envelope
-      gainNode.gain.setValueAtTime(0, context.currentTime);
-      gainNode.gain.linearRampToValueAtTime(volume, context.currentTime + 0.01);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 1.5);
+      const now = context.currentTime;
+      gainNode.gain.setValueAtTime(0, now);
+      gainNode.gain.linearRampToValueAtTime(volume, now + 0.01);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
 
       // Start playing
-      oscillator.start(context.currentTime);
-      oscillator.stop(context.currentTime + 1.5);
+      oscillator.start(now);
+      oscillator.stop(now + 1.5);
 
       // Track oscillator
       currentOscillators.current.add(oscillator);
@@ -131,7 +142,7 @@ export const PianoKeyboard = () => {
       };
 
       setIsPlaying(noteName);
-      console.log(`Playing note: ${noteName} at ${frequency.toFixed(2)}Hz`);
+      console.log(`Successfully playing note: ${noteName} at ${frequency.toFixed(2)}Hz`);
 
     } catch (error) {
       console.error('Audio playback error:', error);
