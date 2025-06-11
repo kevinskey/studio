@@ -64,12 +64,12 @@ export const PianoControls: React.FC<PianoControlsProps> = ({
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="w-16 text-center font-mono">C{currentOctave}-C{currentOctave + 2}</span>
+            <span className="w-16 text-center font-mono">C{currentOctave}-C{currentOctave + 1}</span>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentOctave(Math.min(5, currentOctave + 1))}
-              disabled={currentOctave >= 5}
+              onClick={() => setCurrentOctave(Math.min(6, currentOctave + 1))}
+              disabled={currentOctave >= 6}
             >
               <ChevronRight className="h-4 w-4" />
             </Button>

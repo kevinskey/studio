@@ -24,13 +24,13 @@ export const usePianoKeyboard = () => {
     hasSynth
   } = usePianoSynth({ fallbackToOscillator: true });
 
-  // Generate notes for 3 octaves starting from the current octave
-  const generateNotesFor3Octaves = (startOctave: number) => {
+  // Generate notes - 2 octaves for mobile, 3 for desktop
+  const generateNotesForOctaves = (startOctave: number, numOctaves: number) => {
     const notes = [];
     const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
     const baseFrequency = 16.35; // C0
 
-    for (let octave = startOctave; octave < startOctave + 3; octave++) {
+    for (let octave = startOctave; octave < startOctave + numOctaves; octave++) {
       for (let i = 0; i < noteNames.length; i++) {
         const noteName = noteNames[i];
         const frequency = baseFrequency * Math.pow(2, (octave * 12 + i) / 12);
@@ -45,7 +45,8 @@ export const usePianoKeyboard = () => {
     return notes;
   };
 
-  const notes = generateNotesFor3Octaves(currentOctave);
+  // Use 2 octaves for mobile, 3 for desktop
+  const notes = generateNotesForOctaves(currentOctave, 2);
 
   // Initialize audio context on first user interaction for iOS
   const initializeAudioContext = async () => {
@@ -143,7 +144,7 @@ export const usePianoKeyboard = () => {
     const minSwipeDistance = 50;
 
     if (distance > minSwipeDistance) {
-      setCurrentOctave(prev => Math.min(5, prev + 1));
+      setCurrentOctave(prev => Math.min(6, prev + 1));
     } else if (distance < -minSwipeDistance) {
       setCurrentOctave(prev => Math.max(1, prev - 1));
     }

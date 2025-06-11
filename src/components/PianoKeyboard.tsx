@@ -77,7 +77,7 @@ export const PianoKeyboard = () => {
 
         {/* Swipe instruction */}
         <div className="text-center text-sm text-muted-foreground">
-          <p>Swipe left/right to change octaves • Current: C{currentOctave} to C{currentOctave + 2}</p>
+          <p>Swipe left/right to change octaves • Current: C{currentOctave} to C{currentOctave + 1}</p>
         </div>
 
         {/* Mobile Piano Keyboard */}
@@ -95,7 +95,7 @@ export const PianoKeyboard = () => {
         <div className="text-center text-sm text-muted-foreground">
           <p>Tap the keys to play notes</p>
           <p className="mt-1">Current instrument: {instruments[selectedInstrument].name}</p>
-          <p className="mt-1">Showing 3 octaves: C{currentOctave} to C{currentOctave + 2}</p>
+          <p className="mt-1">Showing 2 octaves: C{currentOctave} to C{currentOctave + 1}</p>
           {isIOS && audioContextInitialized && <p className="mt-1 text-green-600">✓ Audio enabled for iOS</p>}
           {isIOS && !audioContextInitialized && <p className="mt-1 text-orange-600">⚠️ Tap a key to enable audio</p>}
         </div>
@@ -156,7 +156,7 @@ export const PianoKeyboard = () => {
       <div className="text-center text-sm text-muted-foreground">
         <p>Tap or click the keys to play notes</p>
         <p className="mt-1">Current instrument: {instruments[selectedInstrument].name}</p>
-        <p className="mt-1">Showing 3 octaves: C{currentOctave} to C{currentOctave + 2}</p>
+        <p className="mt-1">Showing 2 octaves: C{currentOctave} to C{currentOctave + 1}</p>
         {isIOS && audioContextInitialized && <p className="mt-1 text-green-600">✓ Audio enabled for iOS</p>}
         {isIOS && !audioContextInitialized && <p className="mt-1 text-orange-600">⚠️ Tap a key to enable audio</p>}
       </div>
