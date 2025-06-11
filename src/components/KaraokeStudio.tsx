@@ -1,9 +1,8 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Mic, Play, Pause, Square, Download, Volume2 } from 'lucide-react';
+import { Mic, Play, Pause, Square, Download, Volume2, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface KaraokeTrack {
@@ -12,6 +11,7 @@ interface KaraokeTrack {
   artist: string;
   duration: number;
   url: string;
+  isCustom?: boolean;
 }
 
 interface Recording {
@@ -31,37 +31,41 @@ export const KaraokeStudio = () => {
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
   const [trackVolume, setTrackVolume] = useState(0.7);
   const [micVolume, setMicVolume] = useState(1.0);
+  const [customTracks, setCustomTracks] = useState<KaraokeTrack[]>([]);
   
   const trackAudioRef = useRef<HTMLAudioElement | null>(null);
   const recordingAudioRef = useRef<HTMLAudioElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
   const mixedStreamRef = useRef<MediaStream | null>(null);
 
   // Sample karaoke tracks (in a real app, these would be loaded from a server)
-  const karaoketracks: KaraokeTrack[] = [
+  const defaultTracks: KaraokeTrack[] = [
     {
       id: '1',
       title: 'Happy Birthday',
       artist: 'Traditional',
       duration: 30,
-      url: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCFOh1+/TfSUFKqjQ7N2QO'
+      url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
     },
     {
       id: '2',
       title: 'Twinkle Twinkle Little Star',
       artist: 'Traditional',
       duration: 45,
-      url: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCFOh1+/TfSUFKqjQ7N2QO'
+      url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
     },
     {
       id: '3',
       title: 'Row Row Row Your Boat',
       artist: 'Traditional',
       duration: 40,
-      url: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCFOh1+/TfSUFKqjQ7N2QO'
+      url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
     }
   ];
+
+  const allTracks = [...defaultTracks, ...customTracks];
 
   useEffect(() => {
     audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -72,11 +76,79 @@ export const KaraokeStudio = () => {
       if (audioContextRef.current) {
         audioContextRef.current.close();
       }
+      // Clean up custom track URLs
+      customTracks.forEach(track => {
+        if (track.url.startsWith('blob:')) {
+          URL.revokeObjectURL(track.url);
+        }
+      });
     };
-  }, [audioStream]);
+  }, [audioStream, customTracks]);
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Check if it's an audio file
+    if (!file.type.startsWith('audio/')) {
+      toast.error('Please select an audio file');
+      return;
+    }
+
+    // Check file size (limit to 50MB)
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error('File size must be less than 50MB');
+      return;
+    }
+
+    const url = URL.createObjectURL(file);
+    const audio = new Audio(url);
+    
+    audio.onloadedmetadata = () => {
+      const newTrack: KaraokeTrack = {
+        id: `custom-${Date.now()}`,
+        title: file.name.replace(/\.[^/.]+$/, ""), // Remove file extension
+        artist: 'Custom Upload',
+        duration: Math.round(audio.duration),
+        url,
+        isCustom: true
+      };
+
+      setCustomTracks(prev => [...prev, newTrack]);
+      setSelectedTrack(newTrack);
+      toast.success('Track uploaded successfully!');
+    };
+
+    audio.onerror = () => {
+      URL.revokeObjectURL(url);
+      toast.error('Failed to load audio file. Please try a different format.');
+    };
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeCustomTrack = (trackId: string) => {
+    const trackToRemove = customTracks.find(t => t.id === trackId);
+    if (trackToRemove && trackToRemove.url.startsWith('blob:')) {
+      URL.revokeObjectURL(trackToRemove.url);
+    }
+    
+    setCustomTracks(prev => prev.filter(t => t.id !== trackId));
+    
+    // If the removed track was selected, clear selection
+    if (selectedTrack?.id === trackId) {
+      setSelectedTrack(null);
+      setIsPlayingTrack(false);
+    }
+    
+    toast.success('Track removed');
+  };
 
   const selectTrack = (trackId: string) => {
-    const track = karaoketracks.find(t => t.id === trackId);
+    const track = allTracks.find(t => t.id === trackId);
     setSelectedTrack(track || null);
     setIsPlayingTrack(false);
   };
@@ -88,7 +160,10 @@ export const KaraokeStudio = () => {
       trackAudioRef.current.pause();
       setIsPlayingTrack(false);
     } else {
-      trackAudioRef.current.play();
+      trackAudioRef.current.play().catch((error) => {
+        console.error('Failed to play track:', error);
+        toast.error('Failed to play track. Please try again.');
+      });
       setIsPlayingTrack(true);
     }
   };
@@ -243,16 +318,77 @@ export const KaraokeStudio = () => {
         ref={recordingAudioRef}
         className="hidden"
       />
+      
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="audio/*"
+        onChange={handleFileUpload}
+        className="hidden"
+      />
+
+      {/* File Upload Section */}
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold mb-4">Upload Your Own Track</h3>
+        <Button 
+          onClick={() => fileInputRef.current?.click()}
+          className="w-full"
+          variant="outline"
+        >
+          <Upload className="h-4 w-4 mr-2" />
+          Choose Audio File
+        </Button>
+        <p className="text-sm text-muted-foreground mt-2">
+          Supported formats: MP3, WAV, OGG, M4A (Max: 50MB)
+        </p>
+      </Card>
+
+      {/* Custom Tracks Management */}
+      {customTracks.length > 0 && (
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold mb-4">Your Uploaded Tracks</h3>
+          <div className="space-y-2">
+            {customTracks.map((track) => (
+              <div key={track.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <div className="flex-1">
+                  <div className="font-medium">{track.title}</div>
+                  <div className="text-sm text-muted-foreground">
+                    Duration: {Math.floor(track.duration / 60)}:{(track.duration % 60).toString().padStart(2, '0')}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => removeCustomTrack(track.id)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Track Selection */}
       <Card className="p-6">
         <h3 className="text-lg font-semibold mb-4">Choose Your Karaoke Track</h3>
-        <Select onValueChange={selectTrack}>
+        <Select onValueChange={selectTrack} value={selectedTrack?.id || ""}>
           <SelectTrigger>
             <SelectValue placeholder="Select a song to sing along with" />
           </SelectTrigger>
           <SelectContent>
-            {karaoketracks.map((track) => (
+            {customTracks.length > 0 && (
+              <>
+                <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">Your Tracks</div>
+                {customTracks.map((track) => (
+                  <SelectItem key={track.id} value={track.id}>
+                    {track.title} - {track.artist}
+                  </SelectItem>
+                ))}
+                <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">Default Tracks</div>
+              </>
+            )}
+            {defaultTracks.map((track) => (
               <SelectItem key={track.id} value={track.id}>
                 {track.title} - {track.artist}
               </SelectItem>
@@ -265,7 +401,14 @@ export const KaraokeStudio = () => {
             <div className="flex items-center justify-between">
               <div>
                 <div className="font-semibold">{selectedTrack.title}</div>
-                <div className="text-sm text-gray-600">{selectedTrack.artist}</div>
+                <div className="text-sm text-gray-600">
+                  {selectedTrack.artist}
+                  {selectedTrack.isCustom && (
+                    <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                      Custom
+                    </span>
+                  )}
+                </div>
               </div>
               <Button onClick={toggleTrackPlayback} variant="outline">
                 {isPlayingTrack ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
@@ -398,7 +541,7 @@ export const KaraokeStudio = () => {
 
       <div className="text-center text-sm text-gray-600">
         <p>Professional karaoke recording with track mixing</p>
-        <p className="mt-1">Your voice and the backing track are combined into one audio file</p>
+        <p className="mt-1">Upload your own tracks or use the default ones</p>
       </div>
     </div>
   );
