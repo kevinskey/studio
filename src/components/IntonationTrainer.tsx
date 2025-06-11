@@ -17,6 +17,7 @@ export const IntonationTrainer = () => {
   const [attempts, setAttempts] = useState(0);
   const currentNoteRef = useRef<string | null>(null);
   const playbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isCleaningUpRef = useRef(false);
 
   const {
     isListening,
@@ -48,27 +49,36 @@ export const IntonationTrainer = () => {
 
   const notes = generateNotes();
 
-  // Simplified cleanup function without selectedNote dependency
+  // Cleanup function with loop prevention
   const cleanupAudio = useCallback(async () => {
+    if (isCleaningUpRef.current) {
+      return; // Prevent cleanup loop
+    }
+    
+    isCleaningUpRef.current = true;
     console.log('IntonationTrainer: Cleaning up audio...');
     
-    // Clear any pending timeouts
-    if (playbackTimeoutRef.current) {
-      clearTimeout(playbackTimeoutRef.current);
-      playbackTimeoutRef.current = null;
-    }
-    
-    // Stop currently playing note
-    if (currentNoteRef.current) {
-      try {
-        await stopNote(currentNoteRef.current);
-      } catch (error) {
-        console.error('Error stopping note during cleanup:', error);
+    try {
+      // Clear any pending timeouts
+      if (playbackTimeoutRef.current) {
+        clearTimeout(playbackTimeoutRef.current);
+        playbackTimeoutRef.current = null;
       }
-      currentNoteRef.current = null;
+      
+      // Stop currently playing note
+      if (currentNoteRef.current) {
+        try {
+          await stopNote(currentNoteRef.current);
+        } catch (error) {
+          console.error('Error stopping note during cleanup:', error);
+        }
+        currentNoteRef.current = null;
+      }
+      
+      setIsPlayingReference(false);
+    } finally {
+      isCleaningUpRef.current = false;
     }
-    
-    setIsPlayingReference(false);
   }, [stopNote]);
 
   // Cleanup on unmount only
@@ -79,7 +89,7 @@ export const IntonationTrainer = () => {
   }, [cleanupAudio]);
 
   const playReferenceNote = async () => {
-    if (!synthReady) return;
+    if (!synthReady || isCleaningUpRef.current) return;
     
     // Stop any currently playing note first
     await cleanupAudio();
@@ -93,6 +103,8 @@ export const IntonationTrainer = () => {
       
       // Stop the note after 2 seconds
       playbackTimeoutRef.current = setTimeout(async () => {
+        if (isCleaningUpRef.current) return;
+        
         try {
           if (currentNoteRef.current) {
             await stopNote(currentNoteRef.current);
@@ -113,7 +125,7 @@ export const IntonationTrainer = () => {
   };
 
   const stopReferenceNote = async () => {
-    if (!synthReady) return;
+    if (!synthReady || isCleaningUpRef.current) return;
     
     console.log('Manually stopping reference note');
     await cleanupAudio();
@@ -133,6 +145,8 @@ export const IntonationTrainer = () => {
   };
 
   const handleNoteSelection = async (note: string) => {
+    if (note === selectedNote) return; // Don't cleanup if same note
+    
     // Clean up before changing notes
     await cleanupAudio();
     setSelectedNote(note);
