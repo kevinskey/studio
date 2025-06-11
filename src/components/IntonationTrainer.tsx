@@ -6,7 +6,7 @@ import { Play, Square, Mic, MicOff, RotateCcw } from 'lucide-react';
 import { usePitchDetection } from '@/hooks/usePitchDetection';
 import { usePianoSynth } from '@/hooks/usePianoSynth';
 import { PitchGauge } from './intonation/PitchGauge';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 export const IntonationTrainer = () => {
   const [selectedNote, setSelectedNote] = useState('C2');
@@ -190,7 +190,7 @@ export const IntonationTrainer = () => {
               </Button>
             </div>
             
-            <ScrollArea className="w-full whitespace-nowrap">
+            <ScrollArea className="w-full h-12">
               <div className="flex space-x-2 pb-2">
                 {notes.map((note) => (
                   <Button
@@ -204,6 +204,7 @@ export const IntonationTrainer = () => {
                   </Button>
                 ))}
               </div>
+              <ScrollBar orientation="horizontal" />
             </ScrollArea>
             
             <div className="text-xs text-muted-foreground text-center">
