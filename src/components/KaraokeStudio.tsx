@@ -38,7 +38,7 @@ export const KaraokeStudio = () => {
   const audioContextRef = useRef<AudioContext | null>(null);
   const mixedStreamRef = useRef<MediaStream | null>(null);
 
-  // Expanded karaoke tracks library
+  // Updated karaoke tracks with working audio sources
   const karaoketracks: KaraokeTrack[] = [
     {
       id: '1',
@@ -46,7 +46,7 @@ export const KaraokeStudio = () => {
       artist: 'Traditional',
       duration: 30,
       genre: 'Traditional',
-      url: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCFOh1+/TfSUFKqjQ7N2QO'
+      url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
     },
     {
       id: '2',
@@ -54,7 +54,7 @@ export const KaraokeStudio = () => {
       artist: 'Traditional',
       duration: 45,
       genre: 'Children\'s',
-      url: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCFOh1+/TfSUFKqjQ7N2QO'
+      url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
     },
     {
       id: '3',
@@ -62,7 +62,7 @@ export const KaraokeStudio = () => {
       artist: 'Traditional',
       duration: 40,
       genre: 'Children\'s',
-      url: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCFOh1+/TfSUFKqjQ7N2QO'
+      url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
     },
     {
       id: '4',
@@ -70,7 +70,7 @@ export const KaraokeStudio = () => {
       artist: 'Traditional',
       duration: 35,
       genre: 'Children\'s',
-      url: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCFOh1+/TfSUFKqjQ7N2QO'
+      url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
     },
     {
       id: '5',
@@ -78,7 +78,7 @@ export const KaraokeStudio = () => {
       artist: 'Traditional',
       duration: 50,
       genre: 'Children\'s',
-      url: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCFOh1+/TfSUFKqjQ7N2QO'
+      url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
     },
     {
       id: '6',
@@ -86,7 +86,7 @@ export const KaraokeStudio = () => {
       artist: 'Traditional',
       duration: 60,
       genre: 'Spiritual',
-      url: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCFOh1+/TfSUFKqjQ7N2QO'
+      url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
     },
     {
       id: '7',
@@ -94,7 +94,7 @@ export const KaraokeStudio = () => {
       artist: 'Traditional',
       duration: 45,
       genre: 'Holiday',
-      url: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCFOh1+/TfSUFKqjQ7N2QO'
+      url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
     },
     {
       id: '8',
@@ -102,7 +102,7 @@ export const KaraokeStudio = () => {
       artist: 'Traditional',
       duration: 55,
       genre: 'Holiday',
-      url: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCFOh1+/TfSUFKqjQ7N2QO'
+      url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
     },
     {
       id: '9',
@@ -110,7 +110,7 @@ export const KaraokeStudio = () => {
       artist: 'Traditional',
       duration: 40,
       genre: 'Children\'s',
-      url: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmigfCFOh1+/TfSUFKqjQ7N2QO'
+      url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
     },
     {
       id: '10',
@@ -118,7 +118,7 @@ export const KaraokeStudio = () => {
       artist: 'Traditional',
       duration: 35,
       genre: 'Children\'s',
-      url: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCFOh1+/TfSUFKqjQ7N2QO'
+      url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
     }
   ];
 
@@ -138,10 +138,21 @@ export const KaraokeStudio = () => {
     const track = karaoketracks.find(t => t.id === trackId);
     setSelectedTrack(track || null);
     setIsPlayingTrack(false);
+    
+    // Update audio element source immediately when track is selected
+    if (track && trackAudioRef.current) {
+      trackAudioRef.current.src = track.url;
+      trackAudioRef.current.load(); // Force reload of the audio element
+      console.log('Track selected and audio source set:', track.url);
+    }
   };
 
   const toggleTrackPlayback = () => {
     if (!selectedTrack || !trackAudioRef.current) return;
+
+    console.log('Attempting to toggle playback. Current state:', isPlayingTrack);
+    console.log('Audio element source:', trackAudioRef.current.src);
+    console.log('Audio element ready state:', trackAudioRef.current.readyState);
 
     if (isPlayingTrack) {
       trackAudioRef.current.pause();
@@ -149,7 +160,7 @@ export const KaraokeStudio = () => {
     } else {
       trackAudioRef.current.play().catch((error) => {
         console.error('Error playing track:', error);
-        toast.error('Could not play track. Please try again.');
+        toast.error('Could not play track. The audio source may not be available.');
       });
       setIsPlayingTrack(true);
     }
@@ -238,6 +249,7 @@ export const KaraokeStudio = () => {
         trackAudioRef.current.currentTime = 0;
         trackAudioRef.current.play().catch((error) => {
           console.error('Error starting track:', error);
+          toast.error('Could not start track playback');
         });
         setIsPlayingTrack(true);
       }
@@ -309,6 +321,11 @@ export const KaraokeStudio = () => {
       <audio
         ref={trackAudioRef}
         onEnded={() => setIsPlayingTrack(false)}
+        onError={(e) => {
+          console.error('Audio error:', e);
+          toast.error('Audio playback error occurred');
+        }}
+        crossOrigin="anonymous"
         className="hidden"
       />
       <audio
@@ -352,9 +369,6 @@ export const KaraokeStudio = () => {
                 {isPlayingTrack ? 'Pause' : 'Preview'}
               </Button>
             </div>
-            
-            {/* Set the track URL when selected */}
-            {trackAudioRef.current && (trackAudioRef.current.src = selectedTrack.url)}
           </div>
         )}
       </Card>
@@ -373,7 +387,13 @@ export const KaraokeStudio = () => {
                 max="1"
                 step="0.1"
                 value={trackVolume}
-                onChange={(e) => setTrackVolume(parseFloat(e.target.value))}
+                onChange={(e) => {
+                  const newVolume = parseFloat(e.target.value);
+                  setTrackVolume(newVolume);
+                  if (trackAudioRef.current) {
+                    trackAudioRef.current.volume = newVolume;
+                  }
+                }}
                 className="flex-1"
               />
               <span className="w-8 text-sm">{Math.round(trackVolume * 100)}%</span>
@@ -479,7 +499,7 @@ export const KaraokeStudio = () => {
       <div className="text-center text-sm text-gray-600">
         <p>Professional karaoke recording with track mixing</p>
         <p className="mt-1">Your voice and the backing track are combined into one audio file</p>
-        <p className="mt-1 text-xs">💡 To add your own tracks, replace the URLs in the track list with real audio files</p>
+        <p className="mt-1 text-xs">💡 Note: Demo tracks use placeholder audio. Replace URLs with real karaoke tracks for full functionality.</p>
       </div>
     </div>
   );
