@@ -1,8 +1,7 @@
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Music, Mic, Piano, Clock, Download, User, Home, Target } from 'lucide-react';
+import { Music, Mic, Piano, Clock, Download, User, Home, Target, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -60,6 +59,13 @@ const Landing = () => {
       description: 'Train your pitch accuracy with real-time visual feedback and exercises',
       icon: Target,
       color: 'from-orange-500 to-orange-600'
+    },
+    {
+      id: 'sight-reading',
+      title: 'Sight Reading',
+      description: 'Practice reading musical notation with interactive exercises and training',
+      icon: BookOpen,
+      color: 'from-teal-500 to-teal-600'
     },
     {
       id: 'record',

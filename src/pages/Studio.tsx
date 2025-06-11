@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Music, Mic, Piano, Clock, Download, User, Home, ArrowLeft, Target } from 'lucide-react';
+import { Music, Mic, Piano, Clock, Download, User, Home, ArrowLeft, Target, BookOpen } from 'lucide-react';
 import { PianoKeyboard } from '@/components/PianoKeyboard';
 import { Metronome } from '@/components/Metronome';
 import { PitchPipe } from '@/components/PitchPipe';
@@ -13,6 +12,7 @@ import { UserProfile } from '@/components/UserProfile';
 import { IntonationTrainer } from '@/components/IntonationTrainer';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { SightReadingTool } from '@/components/SightReadingTool';
 
 const Studio = () => {
   const [searchParams] = useSearchParams();
@@ -76,7 +76,7 @@ const Studio = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-7 mb-6">
+          <TabsList className="grid w-full grid-cols-8 mb-6">
             <TabsTrigger value="piano" className="flex items-center gap-2">
               <Piano className="h-4 w-4" />
               <span className="hidden sm:inline">Piano</span>
@@ -92,6 +92,10 @@ const Studio = () => {
             <TabsTrigger value="intonation" className="flex items-center gap-2">
               <Target className="h-4 w-4" />
               <span className="hidden sm:inline">Tune</span>
+            </TabsTrigger>
+            <TabsTrigger value="sight-reading" className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4" />
+              <span className="hidden sm:inline">Read</span>
             </TabsTrigger>
             <TabsTrigger value="record" className="flex items-center gap-2">
               <Mic className="h-4 w-4" />
@@ -130,6 +134,10 @@ const Studio = () => {
 
           <TabsContent value="intonation" className="space-y-6">
             <IntonationTrainer />
+          </TabsContent>
+
+          <TabsContent value="sight-reading" className="space-y-6">
+            <SightReadingTool />
           </TabsContent>
 
           <TabsContent value="record" className="space-y-6">
