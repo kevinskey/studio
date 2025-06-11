@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -50,6 +51,7 @@ export const PianoKeyboard = () => {
   // Use our new WebAssembly-based synthesizer
   const {
     playNote,
+    stopNote,
     setInstrument,
     setVolume: setSynthVolume,
     isInitialized,
@@ -106,7 +108,14 @@ export const PianoKeyboard = () => {
     
     // Visual feedback
     setIsPlaying(noteName);
-    setTimeout(() => setIsPlaying(null), 200);
+  };
+
+  const handleStopNote = (noteName: string) => {
+    // Stop the note using our synthesizer
+    stopNote(noteName);
+    
+    // Clear visual feedback
+    setIsPlaying(null);
   };
 
   const whiteKeys = notes.filter(note => !note.isSharp);
@@ -198,7 +207,13 @@ export const PianoKeyboard = () => {
                     e.preventDefault();
                     handlePlayNote(note.frequency, note.name);
                   }}
+                  onTouchEnd={(e) => {
+                    e.preventDefault();
+                    handleStopNote(note.name);
+                  }}
                   onMouseDown={() => handlePlayNote(note.frequency, note.name)}
+                  onMouseUp={() => handleStopNote(note.name)}
+                  onMouseLeave={() => handleStopNote(note.name)}
                 >
                   <span className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 font-medium pointer-events-none">
                     {note.name.replace(/\d/, '')}
@@ -248,7 +263,13 @@ export const PianoKeyboard = () => {
                           e.preventDefault();
                           handlePlayNote(blackKey.frequency, blackKey.name);
                         }}
+                        onTouchEnd={(e) => {
+                          e.preventDefault();
+                          handleStopNote(blackKey.name);
+                        }}
                         onMouseDown={() => handlePlayNote(blackKey.frequency, blackKey.name)}
+                        onMouseUp={() => handleStopNote(blackKey.name)}
+                        onMouseLeave={() => handleStopNote(blackKey.name)}
                       >
                         <span className="absolute bottom-3 left-1/2 transform -translate-x-1/2 text-xs text-white font-medium pointer-events-none">
                           {blackKey.name.replace(/\d/, '')}
@@ -358,9 +379,15 @@ export const PianoKeyboard = () => {
                   borderLeft: index === 0 ? '1px solid #d1d5db' : 'none'
                 }}
                 onMouseDown={() => handlePlayNote(note.frequency, note.name)}
+                onMouseUp={() => handleStopNote(note.name)}
+                onMouseLeave={() => handleStopNote(note.name)}
                 onTouchStart={(e) => {
                   e.preventDefault();
                   handlePlayNote(note.frequency, note.name);
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  handleStopNote(note.name);
                 }}
               >
                 <span className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 font-medium pointer-events-none">
@@ -408,9 +435,15 @@ export const PianoKeyboard = () => {
                         transform: 'translateX(-50%)'
                       }}
                       onMouseDown={() => handlePlayNote(blackKey.frequency, blackKey.name)}
+                      onMouseUp={() => handleStopNote(blackKey.name)}
+                      onMouseLeave={() => handleStopNote(blackKey.name)}
                       onTouchStart={(e) => {
                         e.preventDefault();
                         handlePlayNote(blackKey.frequency, blackKey.name);
+                      }}
+                      onTouchEnd={(e) => {
+                        e.preventDefault();
+                        handleStopNote(blackKey.name);
                       }}
                     >
                       <span className="absolute bottom-3 left-1/2 transform -translate-x-1/2 text-xs text-white font-medium pointer-events-none">

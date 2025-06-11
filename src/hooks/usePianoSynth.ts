@@ -88,6 +88,20 @@ export const usePianoSynth = (options: UsePianoSynthOptions = {}) => {
     }
   };
 
+  // Function to stop a note using TinySynth
+  const stopNote = async (noteName: string) => {
+    try {
+      if (synthRef.current) {
+        const midiNote = TinySynthEngine.noteNameToMidi(noteName);
+        if (midiNote >= 0) {
+          await synthRef.current.stopNote(midiNote);
+        }
+      }
+    } catch (err) {
+      console.error('Error stopping note with TinySynth:', err);
+    }
+  };
+
   // Fallback method using standard Web Audio API
   const playWithOscillator = (noteName: string) => {
     if (!audioContextRef.current) return;
@@ -157,6 +171,7 @@ export const usePianoSynth = (options: UsePianoSynthOptions = {}) => {
 
   return {
     playNote,
+    stopNote,
     setInstrument,
     setVolume,
     isInitialized,
