@@ -1,4 +1,3 @@
-
 import { useState, useRef } from 'react';
 import { toast } from 'sonner';
 import { Recording, KaraokeTrack } from '@/types/karaoke';
@@ -18,6 +17,7 @@ export const useKaraokeRecording = () => {
   const chunksRef = useRef<Blob[]>([]);
   const levelUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const trackSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const currentTrackElementRef = useRef<HTMLAudioElement | null>(null);
   const { getAudioContext } = useAudioContext();
   const { setupAutoLevel, stopAutoLevel, getCurrentLevel } = useAutoLevel();
 
@@ -109,19 +109,32 @@ export const useKaraokeRecording = () => {
         try {
           console.log('Setting up track audio mixing');
           
-          // Only create a new source if we don't have one or if it's disconnected
-          if (!trackSourceRef.current) {
-            trackSourceRef.current = audioContext.createMediaElementSource(trackAudioRef.current);
+          // Check if we need to create a new source or if we can reuse the existing one
+          const trackElement = trackAudioRef.current;
+          
+          if (!trackSourceRef.current || currentTrackElementRef.current !== trackElement) {
+            // Clean up old source if it exists
+            if (trackSourceRef.current) {
+              try {
+                trackSourceRef.current.disconnect();
+              } catch (e) {
+                console.log('Could not disconnect old track source:', e);
+              }
+            }
+            
+            // Create new source
+            trackSourceRef.current = audioContext.createMediaElementSource(trackElement);
+            currentTrackElementRef.current = trackElement;
+            console.log('Created new track audio source');
+          } else {
+            console.log('Reusing existing track audio source');
           }
           
           const trackGain = audioContext.createGain();
           trackGain.gain.value = trackVolume;
           
-          // Create a splitter to send audio to both recording and speakers
-          const splitter = audioContext.createGain();
-          
-          trackSourceRef.current.connect(splitter);
-          splitter.connect(trackGain);
+          // Connect track source to gain, then to both recording and speakers
+          trackSourceRef.current.connect(trackGain);
           
           // Connect track to recording destination
           trackGain.connect(destination);
@@ -129,9 +142,10 @@ export const useKaraokeRecording = () => {
           // Connect track to speakers for monitoring
           trackGain.connect(audioContext.destination);
           
-          console.log('Track audio mixed into recording');
+          console.log('Track audio mixed into recording successfully');
         } catch (error) {
-          console.log('Could not mix track audio, recording voice only:', error);
+          console.error('Could not mix track audio, recording voice only:', error);
+          toast.warning('Recording voice only - track audio could not be mixed');
         }
       }
       
@@ -215,8 +229,8 @@ export const useKaraokeRecording = () => {
       levelUpdateIntervalRef.current = null;
     }
     
-    // Clean up track source reference
-    trackSourceRef.current = null;
+    // Don't disconnect the track source here - keep it for reuse
+    // trackSourceRef.current = null;
     
     setIsRecording(false);
     setMediaRecorder(null);
