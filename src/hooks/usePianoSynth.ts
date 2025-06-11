@@ -67,6 +67,26 @@ export const usePianoSynth = (options: UsePianoSynthOptions = {}) => {
     };
   }, [fallbackToOscillator]);
 
+  // Reset audio function
+  const resetAudio = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      if (synthRef.current) {
+        await synthRef.current.reset();
+        console.log('Audio reset successfully');
+      }
+      
+      setIsInitialized(true);
+      setIsLoading(false);
+    } catch (err) {
+      console.error('Failed to reset audio:', err);
+      setError(err instanceof Error ? err : new Error('Failed to reset audio'));
+      setIsLoading(false);
+    }
+  };
+
   // Function to play a note using TinySynth
   const playNote = async (noteName: string, velocity = 100) => {
     try {
@@ -174,6 +194,7 @@ export const usePianoSynth = (options: UsePianoSynthOptions = {}) => {
     stopNote,
     setInstrument,
     setVolume,
+    resetAudio,
     isInitialized,
     isLoading,
     error,

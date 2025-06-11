@@ -35,6 +35,32 @@ class TinySynthEngine {
     console.log('TinySynth: iOS detected:', this.isIOS);
   }
 
+  public async reset(): Promise<void> {
+    console.log('TinySynth: Resetting audio engine...');
+    
+    // Stop all active notes
+    this.activeNotes.forEach((note, midiNote) => {
+      this.stopNote(midiNote);
+    });
+    this.activeNotes.clear();
+    
+    // Close existing audio context
+    if (this.audioContext && this.audioContext.state !== 'closed') {
+      await this.audioContext.close();
+    }
+    
+    // Reset state
+    this.audioContext = null;
+    this.masterGain = null;
+    this.ready = false;
+    this.loadingPromise = null;
+    this.userInteractionReceived = false;
+    
+    // Reinitialize
+    await this.initialize();
+    console.log('TinySynth: Audio engine reset complete');
+  }
+
   public async initialize(): Promise<void> {
     if (this.ready) return Promise.resolve();
     if (this.loadingPromise) return this.loadingPromise;
