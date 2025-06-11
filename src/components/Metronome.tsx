@@ -12,7 +12,7 @@ export const Metronome = () => {
   const [timeSignature, setTimeSignature] = useState(4);
   const [meterSignature, setMeterSignature] = useState(4); // Bottom number of time signature
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const { audioContext, initializeAudio } = useAudioContext();
+  const { audioContext, getAudioContext, initializeAudio } = useAudioContext();
 
   useEffect(() => {
     return () => {
@@ -23,7 +23,7 @@ export const Metronome = () => {
   }, []);
 
   const playClick = async (isAccent = false) => {
-    let context = audioContext;
+    let context = getAudioContext();
     if (!context) {
       context = await initializeAudio();
       if (!context) return;
