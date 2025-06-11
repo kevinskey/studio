@@ -300,7 +300,7 @@ export const PianoKeyboard = () => {
           <p>Swipe left/right to change octaves • Current: C{currentOctave} to C{currentOctave + 2}</p>
         </div>
 
-        {/* Mobile Horizontal Piano - 3 Octaves - Full Width */}
+        {/* Mobile Horizontal Piano - 3 Octaves - Realistic Sizing */}
         <div 
           className="relative w-screen -mx-4 bg-gray-900 p-2 shadow-2xl"
           onTouchStart={(e) => {
@@ -315,10 +315,10 @@ export const PianoKeyboard = () => {
         >
           <style>{`
             .piano-mobile {
-              --key-width: calc(100vw / ${whiteKeys.length});
-              --key-height: 160px;
-              --black-key-width: calc(var(--key-width) * 0.6);
-              --black-key-height: 100px;
+              --white-key-width: 16mm; /* Scaled down from 23mm for mobile */
+              --white-key-height: 100mm; /* Proportional height */
+              --black-key-width: 7mm; /* Scaled down from 10mm for mobile */
+              --black-key-height: 60mm; /* Proportional height */
             }
           `}</style>
           
@@ -334,8 +334,8 @@ export const PianoKeyboard = () => {
                       : 'bg-gradient-to-b from-white via-gray-50 to-gray-100 active:from-gray-200 active:via-gray-300 active:to-gray-100 shadow-lg'
                   } border-r border-gray-300 rounded-b-md`}
                   style={{
-                    width: 'var(--key-width)',
-                    height: 'var(--key-height)',
+                    width: 'var(--white-key-width)',
+                    height: 'var(--white-key-height)',
                     borderLeft: index === 0 ? '1px solid #d1d5db' : 'none'
                   }}
                   onTouchStart={(e) => {
@@ -367,7 +367,7 @@ export const PianoKeyboard = () => {
                   return (
                     <div 
                       key={whiteNote.name} 
-                      style={{ width: 'var(--key-width)' }}
+                      style={{ width: 'var(--white-key-width)' }}
                     />
                   );
                 }
@@ -379,7 +379,7 @@ export const PianoKeyboard = () => {
                   <div 
                     key={whiteNote.name} 
                     className="relative"
-                    style={{ width: 'var(--key-width)' }}
+                    style={{ width: 'var(--white-key-width)' }}
                   >
                     {blackKey && (
                       <button
@@ -391,7 +391,7 @@ export const PianoKeyboard = () => {
                         style={{
                           width: 'var(--black-key-width)',
                           height: 'var(--black-key-height)',
-                          left: 'calc(50% + var(--key-width) * 0.2)',
+                          left: 'calc(50% + var(--white-key-width) * 0.25)',
                           transform: 'translateX(-50%)'
                         }}
                         onTouchStart={(e) => {
@@ -429,7 +429,7 @@ export const PianoKeyboard = () => {
     );
   }
 
-  // Desktop layout
+  // Desktop layout with realistic piano key sizing
   return (
     <div className="w-full space-y-6">
       {/* iOS Audio Warning for desktop view */}
@@ -522,7 +522,7 @@ export const PianoKeyboard = () => {
         </div>
       )}
 
-      {/* Realistic Piano Keyboard - 3 Octaves - Full Width */}
+      {/* Realistic Piano Keyboard - 3 Octaves - Standard Sizing */}
       <div 
         className="relative w-screen -mx-4 bg-gray-900 p-2 shadow-2xl"
         onTouchStart={(e) => {
@@ -537,14 +537,14 @@ export const PianoKeyboard = () => {
       >
         <style>{`
           .piano-container {
-            --white-key-width: calc(100vw / ${whiteKeys.length});
-            --black-key-width: calc(var(--white-key-width) * 0.6);
-            --white-key-height: max(calc(var(--white-key-width) * 4), 180px);
-            --black-key-height: calc(var(--white-key-height) * 0.6);
+            --white-key-width: 23mm; /* Standard piano white key width */
+            --white-key-height: 150mm; /* Standard proportional height */
+            --black-key-width: 10mm; /* Standard piano black key width */
+            --black-key-height: 90mm; /* Standard proportional height */
           }
         `}</style>
         
-        <div className="piano-container relative w-full" style={{ height: 'max(calc(calc(100vw / 21) * 4), 180px)' }}>
+        <div className="piano-container relative w-full" style={{ height: '150mm' }}>
           {/* White Keys */}
           <div className="flex w-full h-full">
             {whiteKeys.map((note, index) => (
@@ -612,7 +612,7 @@ export const PianoKeyboard = () => {
                       style={{
                         width: 'var(--black-key-width)',
                         height: 'var(--black-key-height)',
-                        left: 'calc(50% + var(--white-key-width) * 0.2)',
+                        left: 'calc(50% + var(--white-key-width) * 0.25)',
                         transform: 'translateX(-50%)'
                       }}
                       onMouseDown={() => handlePlayNote(blackKey.frequency, blackKey.name)}
