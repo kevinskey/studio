@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -52,7 +51,7 @@ export const IntonationTrainer = () => {
 
   // Emergency stop all audio - force stops everything
   const emergencyStopAll = useCallback(async () => {
-    console.log('Emergency stop: Forcing all audio to stop');
+    console.log('IntonationTrainer: Emergency stop all audio');
     
     // Clear any pending timeouts
     if (playbackTimeoutRef.current) {
@@ -60,7 +59,7 @@ export const IntonationTrainer = () => {
       playbackTimeoutRef.current = null;
     }
     
-    // Try to stop all possible notes (brute force approach)
+    // Try to stop all possible notes
     const allNotes = ['C2', 'C#2', 'D2', 'D#2', 'E2', 'F2', 'F#2', 'G2', 'G#2', 'A2', 'A#2', 'B2',
                       'C3', 'C#3', 'D3', 'D#3', 'E3', 'F3', 'F#3', 'G3', 'G#3', 'A3', 'A#3', 'B3',
                       'C4', 'C#4', 'D4', 'D#4', 'E4', 'F4', 'F#4', 'G4', 'G#4', 'A4', 'A#4', 'B4',
@@ -71,22 +70,21 @@ export const IntonationTrainer = () => {
       try {
         await stopNote(note);
       } catch (error) {
-        // Silently continue - we're trying to stop everything
+        console.warn('Error stopping note during emergency stop:', note, error);
       }
     }
     
-    // Reset the entire audio system
+    // Reset audio system
     try {
       await resetAudio();
     } catch (error) {
-      console.warn('Error resetting audio:', error);
+      console.warn('Error resetting audio during emergency stop:', error);
     }
     
     currentNoteRef.current = null;
     setIsPlayingReference(false);
     isCleaningUpRef.current = false;
-    
-    console.log('Emergency stop completed');
+    console.log('IntonationTrainer: Emergency stop completed');
   }, [stopNote, resetAudio]);
 
   // Cleanup function with loop prevention
@@ -129,12 +127,28 @@ export const IntonationTrainer = () => {
   }, [cleanupAudio]);
 
   const playReferenceNote = async () => {
-    if (!synthReady || isCleaningUpRef.current) return;
+    if (!synthReady) {
+      console.log('Synth not ready, cannot play reference note');
+      return;
+    }
     
-    // Stop any currently playing note first
-    await cleanupAudio();
+    if (isPlayingReference) {
+      console.log('Already playing reference note, ignoring request');
+      return;
+    }
     
     try {
+      // Stop any existing note first, but don't interfere with our new playback
+      if (currentNoteRef.current && currentNoteRef.current !== selectedNote) {
+        await stopNote(currentNoteRef.current);
+      }
+      
+      // Clear any existing timeout
+      if (playbackTimeoutRef.current) {
+        clearTimeout(playbackTimeoutRef.current);
+        playbackTimeoutRef.current = null;
+      }
+      
       setIsPlayingReference(true);
       currentNoteRef.current = selectedNote;
       
@@ -143,17 +157,16 @@ export const IntonationTrainer = () => {
       
       // Stop the note after 2 seconds
       playbackTimeoutRef.current = setTimeout(async () => {
-        if (isCleaningUpRef.current) return;
-        
         try {
-          if (currentNoteRef.current) {
-            await stopNote(currentNoteRef.current);
+          if (currentNoteRef.current === selectedNote) {
+            await stopNote(selectedNote);
             currentNoteRef.current = null;
           }
           setIsPlayingReference(false);
           console.log('Reference note stopped automatically');
         } catch (error) {
           console.error('Error auto-stopping reference note:', error);
+          setIsPlayingReference(false);
         }
       }, 2000);
       
@@ -165,10 +178,25 @@ export const IntonationTrainer = () => {
   };
 
   const stopReferenceNote = async () => {
-    if (!synthReady || isCleaningUpRef.current) return;
+    if (!synthReady || !isPlayingReference) return;
     
     console.log('Manually stopping reference note');
-    await cleanupAudio();
+    
+    if (playbackTimeoutRef.current) {
+      clearTimeout(playbackTimeoutRef.current);
+      playbackTimeoutRef.current = null;
+    }
+    
+    if (currentNoteRef.current) {
+      try {
+        await stopNote(currentNoteRef.current);
+      } catch (error) {
+        console.error('Error manually stopping reference note:', error);
+      }
+      currentNoteRef.current = null;
+    }
+    
+    setIsPlayingReference(false);
   };
 
   const handleToggleListening = () => {
@@ -270,11 +298,11 @@ export const IntonationTrainer = () => {
           <div className="flex items-center justify-center gap-4">
             <Button
               onClick={playReferenceNote}
-              disabled={isPlayingReference || !synthReady}
+              disabled={!synthReady}
               className="flex items-center gap-2"
             >
               <Play className="h-4 w-4" />
-              Play Reference
+              Play Reference ({selectedNote})
             </Button>
             
             {isPlayingReference && (
