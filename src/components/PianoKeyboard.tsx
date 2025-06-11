@@ -422,7 +422,6 @@ export const PianoKeyboard = () => {
           <p>Tap the keys to play notes</p>
           <p className="mt-1">Current instrument: {instruments[selectedInstrument].name}</p>
           <p className="mt-1">Showing 3 octaves: C{currentOctave} to C{currentOctave + 2}</p>
-          {hasSynth && <p className="mt-1 text-green-600">✓ Using advanced WebAssembly synthesizer</p>}
           {isIOS && audioContextInitialized && <p className="mt-1 text-green-600">✓ Audio enabled for iOS</p>}
           {isIOS && !audioContextInitialized && <p className="mt-1 text-orange-600">⚠️ Tap a key to enable audio</p>}
         </div>
@@ -517,17 +516,11 @@ export const PianoKeyboard = () => {
       </div>
 
       {/* Status indicator for WebAssembly synth */}
-      {isLoading ? (
+      {isLoading && (
         <div className="bg-blue-50 text-blue-800 p-3 rounded-md text-center text-sm">
           Loading advanced piano synthesizer...
         </div>
-      ) : hasSynth ? (
-        <div className="bg-green-50 text-green-800 p-3 rounded-md text-center text-sm flex items-center justify-center gap-2">
-          <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-          Using high-quality WebAssembly synthesizer for realistic piano sounds
-          {isIOS && audioContextInitialized && <span className="ml-2">• iOS Audio Ready</span>}
-        </div>
-      ) : null}
+      )}
 
       {/* Octave indicator */}
       <div className="text-center text-sm text-muted-foreground">
