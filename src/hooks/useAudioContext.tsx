@@ -21,23 +21,18 @@ export const useAudioContext = () => {
       return audioContextRef.current;
     } catch (error) {
       console.error('Failed to initialize audio:', error);
-      toast.error('Could not initialize audio. Please check your browser settings.');
+      toast.error('Could not initialize audio');
       return null;
     }
   };
 
-  const resetAudio = () => {
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-    setIsAudioEnabled(false);
-    initializeAudio();
+  const getAudioContext = () => {
+    return audioContextRef.current;
   };
 
   useEffect(() => {
     return () => {
-      if (audioContextRef.current) {
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         audioContextRef.current.close();
       }
     };
@@ -47,6 +42,6 @@ export const useAudioContext = () => {
     audioContext: audioContextRef.current,
     isAudioEnabled,
     initializeAudio,
-    resetAudio
+    getAudioContext
   };
 };
