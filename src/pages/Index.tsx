@@ -1,17 +1,43 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Music, Mic, Piano, Clock, Download } from 'lucide-react';
+import { Music, Mic, Piano, Clock, Download, User } from 'lucide-react';
 import { PianoKeyboard } from '@/components/PianoKeyboard';
 import { Metronome } from '@/components/Metronome';
 import { PitchPipe } from '@/components/PitchPipe';
 import { RecordingStudio } from '@/components/RecordingStudio';
 import { KaraokeStudio } from '@/components/KaraokeStudio';
+import { UserProfile } from '@/components/UserProfile';
+import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('piano');
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/auth');
+    }
+  }, [user, loading, navigate]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <Music className="h-12 w-12 text-purple-600 mx-auto mb-4 animate-pulse" />
+          <p className="text-gray-600">Loading Music Studio...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null; // Redirect will happen in useEffect
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 p-4">
@@ -25,7 +51,7 @@ const Index = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-6">
+          <TabsList className="grid w-full grid-cols-6 mb-6">
             <TabsTrigger value="piano" className="flex items-center gap-2">
               <Piano className="h-4 w-4" />
               <span className="hidden sm:inline">Piano</span>
@@ -45,6 +71,10 @@ const Index = () => {
             <TabsTrigger value="karaoke" className="flex items-center gap-2">
               <Download className="h-4 w-4" />
               <span className="hidden sm:inline">Karaoke</span>
+            </TabsTrigger>
+            <TabsTrigger value="profile" className="flex items-center gap-2">
+              <User className="h-4 w-4" />
+              <span className="hidden sm:inline">Profile</span>
             </TabsTrigger>
           </TabsList>
 
@@ -78,6 +108,10 @@ const Index = () => {
 
           <TabsContent value="karaoke" className="space-y-6">
             <KaraokeStudio />
+          </TabsContent>
+
+          <TabsContent value="profile" className="space-y-6">
+            <UserProfile />
           </TabsContent>
         </Tabs>
       </div>
