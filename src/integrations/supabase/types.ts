@@ -36,6 +36,33 @@ export type Database = {
         }
         Relationships: []
       }
+      karaoke_tracks: {
+        Row: {
+          artist: string | null
+          created_at: string | null
+          duration: number
+          file_url: string
+          id: string
+          title: string
+        }
+        Insert: {
+          artist?: string | null
+          created_at?: string | null
+          duration: number
+          file_url: string
+          id?: string
+          title: string
+        }
+        Update: {
+          artist?: string | null
+          created_at?: string | null
+          duration?: number
+          file_url?: string
+          id?: string
+          title?: string
+        }
+        Relationships: []
+      }
       playlist_tracks: {
         Row: {
           added_at: string | null
