@@ -237,6 +237,10 @@ export const useKaraokeRecording = () => {
     }
   };
 
+  const removeRecording = (recordingId: string) => {
+    setRecordings(prev => prev.filter(r => r.id !== recordingId));
+  };
+
   return {
     isRecording,
     recordings,
@@ -247,6 +251,7 @@ export const useKaraokeRecording = () => {
     checkMicrophonePermissions,
     startRecording,
     stopRecording,
-    toggleAutoLevel
+    toggleAutoLevel,
+    removeRecording
   };
 };

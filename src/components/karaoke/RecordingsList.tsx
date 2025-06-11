@@ -2,15 +2,19 @@
 import React, { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Play, Download, Square } from 'lucide-react';
+import { Play, Download, Square, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Recording } from '@/types/karaoke';
 
 interface RecordingsListProps {
   recordings: Recording[];
+  onDeleteRecording: (recordingId: string) => void;
 }
 
-export const RecordingsList: React.FC<RecordingsListProps> = ({ recordings }) => {
+export const RecordingsList: React.FC<RecordingsListProps> = ({ 
+  recordings, 
+  onDeleteRecording 
+}) => {
   const recordingAudioRef = useRef<HTMLAudioElement | null>(null);
   const [playingRecordingId, setPlayingRecordingId] = useState<string | null>(null);
 
@@ -59,6 +63,25 @@ export const RecordingsList: React.FC<RecordingsListProps> = ({ recordings }) =>
     }
   };
 
+  const handleDeleteRecording = (recording: Recording) => {
+    if (!confirm(`Are you sure you want to delete "${recording.name}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    // Stop playback if this recording is currently playing
+    if (playingRecordingId === recording.id) {
+      stopRecording();
+    }
+
+    // Clean up the blob URL
+    if (recording.url.startsWith('blob:')) {
+      URL.revokeObjectURL(recording.url);
+    }
+
+    onDeleteRecording(recording.id);
+    toast.success('Recording deleted');
+  };
+
   const formatDate = (date: Date) => {
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
@@ -102,6 +125,15 @@ export const RecordingsList: React.FC<RecordingsListProps> = ({ recordings }) =>
                   onClick={() => downloadRecording(recording)}
                 >
                   <Download className="h-4 w-4" />
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleDeleteRecording(recording)}
+                  className="text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
             </div>

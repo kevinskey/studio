@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Mic } from 'lucide-react';
@@ -31,7 +30,8 @@ export const KaraokeStudio = () => {
     checkMicrophonePermissions,
     startRecording,
     stopRecording,
-    toggleAutoLevel
+    toggleAutoLevel,
+    removeRecording
   } = useKaraokeRecording();
 
   const allTracks = [...customTracks];
@@ -154,6 +154,10 @@ export const KaraokeStudio = () => {
     stopRecording(trackAudioRef, setIsPlayingTrack);
   };
 
+  const handleDeleteRecording = (recordingId: string) => {
+    removeRecording(recordingId);
+  };
+
   return (
     <div className="w-full max-w-2xl mx-auto space-y-6">
       {/* Microphone Permission Status */}
@@ -205,7 +209,10 @@ export const KaraokeStudio = () => {
         onStopRecording={handleStopRecording}
       />
 
-      <RecordingsList recordings={recordings} />
+      <RecordingsList 
+        recordings={recordings} 
+        onDeleteRecording={handleDeleteRecording}
+      />
 
       <div className="text-center text-sm text-gray-600">
         <p>Professional karaoke recording with automatic level control</p>
@@ -214,3 +221,5 @@ export const KaraokeStudio = () => {
     </div>
   );
 };
+
+export default KaraokeStudio;
