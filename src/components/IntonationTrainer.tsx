@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -120,7 +121,7 @@ export const IntonationTrainer = () => {
     }
   }, [stopNote]);
 
-  // Cleanup on unmount only
+  // Cleanup on unmount - use gentle cleanup, not emergency stop
   useEffect(() => {
     return () => {
       cleanupAudio();
@@ -229,7 +230,7 @@ export const IntonationTrainer = () => {
               className="flex items-center gap-2"
             >
               <StopCircle className="h-4 w-4" />
-              Stop All Audio
+              Emergency Stop (for stuck notes)
             </Button>
           </div>
 
