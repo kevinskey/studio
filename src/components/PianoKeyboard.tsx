@@ -40,7 +40,7 @@ const instruments: Record<InstrumentType, InstrumentConfig> = {
 
 export const PianoKeyboard = () => {
   const [isPlaying, setIsPlaying] = useState<string | null>(null);
-  const [volume, setVolume] = useState(0.5);
+  const [volume, setVolume] = useState(0.8); // Higher default volume
   const [isMuted, setIsMuted] = useState(false);
   const [selectedInstrument, setSelectedInstrument] = useState<InstrumentType>('grand-piano');
   const [currentOctave, setCurrentOctave] = useState(4); // Start at octave 4 (C4)
@@ -49,6 +49,7 @@ export const PianoKeyboard = () => {
   const touchStartX = useRef<number>(0);
   const touchEndX = useRef<number>(0);
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const initializationAttempted = useRef(false);
   
   // Use our new WebAssembly-based synthesizer
   const {
@@ -84,18 +85,33 @@ export const PianoKeyboard = () => {
 
   // Initialize audio context on first user interaction for iOS
   const initializeAudioContext = async () => {
-    if (!audioContextInitialized && isIOS) {
+    if (!audioContextInitialized && isIOS && !initializationAttempted.current) {
       try {
-        // This will trigger the audio context initialization
-        await playNote('C4', 1); // Play a very quiet note
-        await stopNote('C4');
+        initializationAttempted.current = true;
+        console.log('Initializing audio context for iOS...');
+        
+        // Play a silent note to wake up the audio context
+        await playNote('C4', 1);
+        setTimeout(async () => {
+          await stopNote('C4');
+        }, 100);
+        
         setAudioContextInitialized(true);
         console.log('Audio context initialized for iOS');
       } catch (error) {
         console.error('Failed to initialize audio context:', error);
+        initializationAttempted.current = false;
       }
     }
   };
+
+  // Auto-initialize for iOS when synth is ready
+  useEffect(() => {
+    if (isIOS && isInitialized && !audioContextInitialized && !initializationAttempted.current) {
+      console.log('Auto-initializing audio for iOS...');
+      // Don't auto-initialize, wait for user interaction
+    }
+  }, [isIOS, isInitialized, audioContextInitialized]);
 
   // Handle swipe detection
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -153,13 +169,16 @@ export const PianoKeyboard = () => {
   const handlePlayNote = async (frequency: number, noteName: string) => {
     if (isMuted) return;
 
+    console.log('Attempting to play note:', noteName, 'on iOS:', isIOS);
+
     // Initialize audio context on first interaction for iOS
     if (isIOS && !audioContextInitialized) {
       await initializeAudioContext();
     }
 
-    // Play the note using our synthesizer
-    await playNote(noteName);
+    // Play the note using our synthesizer with higher velocity for mobile
+    const velocity = isMobile ? 127 : 100;
+    await playNote(noteName, velocity);
     
     // Visual feedback
     setIsPlaying(noteName);
@@ -182,9 +201,18 @@ export const PianoKeyboard = () => {
       <div className="w-full space-y-4">
         {/* iOS Audio Warning */}
         {isIOS && !audioContextInitialized && (
-          <div className="flex items-center justify-center gap-2 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-            <span className="text-sm text-yellow-800 font-medium">
-              Tap any key to enable audio on iOS
+          <div className="flex items-center justify-center gap-2 p-4 bg-orange-50 rounded-lg border-2 border-orange-200 animate-pulse">
+            <span className="text-sm text-orange-800 font-bold">
+              🎹 Tap any piano key to enable sound on iPhone/iPad
+            </span>
+          </div>
+        )}
+
+        {/* Audio Status for iOS */}
+        {isIOS && audioContextInitialized && (
+          <div className="flex items-center justify-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+            <span className="text-sm text-green-800 font-medium">
+              ✅ Audio enabled and ready to play!
             </span>
           </div>
         )}
@@ -272,7 +300,13 @@ export const PianoKeyboard = () => {
         {/* Mobile Horizontal Piano */}
         <div 
           className="relative w-full overflow-x-auto bg-gray-900 p-2 rounded-lg shadow-2xl"
-          onTouchStart={handleTouchStart}
+          onTouchStart={(e) => {
+            handleTouchStart(e);
+            // Initialize audio on first touch for iOS
+            if (isIOS && !audioContextInitialized) {
+              initializeAudioContext();
+            }
+          }}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
@@ -386,6 +420,7 @@ export const PianoKeyboard = () => {
           <p className="mt-1">Current instrument: {instruments[selectedInstrument].name}</p>
           {hasSynth && <p className="mt-1 text-green-600">✓ Using advanced WebAssembly synthesizer</p>}
           {isIOS && audioContextInitialized && <p className="mt-1 text-green-600">✓ Audio enabled for iOS</p>}
+          {isIOS && !audioContextInitialized && <p className="mt-1 text-orange-600">⚠️ Tap a key to enable audio</p>}
         </div>
       </div>
     );
@@ -396,8 +431,15 @@ export const PianoKeyboard = () => {
     <div className="w-full space-y-6">
       {/* iOS Audio Warning for desktop view */}
       {isIOS && !audioContextInitialized && (
-        <div className="bg-yellow-50 text-yellow-800 p-3 rounded-md text-center text-sm">
-          Tap any key to enable audio on iOS devices
+        <div className="bg-orange-50 text-orange-800 p-4 rounded-md text-center text-sm font-medium border-2 border-orange-200">
+          🎹 Tap any piano key to enable audio on iPhone/iPad devices
+        </div>
+      )}
+
+      {/* Audio Status for iOS Desktop */}
+      {isIOS && audioContextInitialized && (
+        <div className="bg-green-50 text-green-800 p-3 rounded-md text-center text-sm">
+          ✅ Audio enabled and ready to play!
         </div>
       )}
 
@@ -491,7 +533,13 @@ export const PianoKeyboard = () => {
       {/* Realistic Piano Keyboard */}
       <div 
         className="relative w-full overflow-hidden bg-gray-900 p-2 rounded-lg shadow-2xl"
-        onTouchStart={handleTouchStart}
+        onTouchStart={(e) => {
+          handleTouchStart(e);
+          // Initialize audio on first touch for iOS
+          if (isIOS && !audioContextInitialized) {
+            initializeAudioContext();
+          }
+        }}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
@@ -603,6 +651,7 @@ export const PianoKeyboard = () => {
         <p>Tap or click the keys to play notes</p>
         <p className="mt-1">Current instrument: {instruments[selectedInstrument].name}</p>
         {isIOS && audioContextInitialized && <p className="mt-1 text-green-600">✓ Audio enabled for iOS</p>}
+        {isIOS && !audioContextInitialized && <p className="mt-1 text-orange-600">⚠️ Tap a key to enable audio</p>}
       </div>
     </div>
   );

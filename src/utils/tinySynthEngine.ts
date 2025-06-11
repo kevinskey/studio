@@ -17,8 +17,9 @@ class TinySynthEngine {
   private loadingPromise: Promise<void> | null = null;
   private currentProgram = 0; // Default to Piano
   private activeNotes = new Map<number, TinySynthNote>();
-  private masterVolume = 0.5;
+  private masterVolume = 0.7;
   private isIOS = false;
+  private userInteractionReceived = false;
 
   // Singleton pattern
   public static getInstance(): TinySynthEngine {
@@ -31,6 +32,7 @@ class TinySynthEngine {
   private constructor() {
     // Private constructor for singleton
     this.isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    console.log('TinySynth: iOS detected:', this.isIOS);
   }
 
   public async initialize(): Promise<void> {
@@ -39,21 +41,22 @@ class TinySynthEngine {
 
     this.loadingPromise = new Promise<void>(async (resolve, reject) => {
       try {
+        console.log('TinySynth: Initializing audio context...');
+        
         // Create audio context with proper iOS handling
         this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({
           latencyHint: 'interactive',
           sampleRate: 44100
         });
         
-        // For iOS, we need to ensure the audio context starts in a user gesture
-        if (this.isIOS && this.audioContext.state === 'suspended') {
-          console.log('iOS detected - audio context suspended, will resume on first user interaction');
-        }
+        console.log('TinySynth: Audio context state:', this.audioContext.state);
         
         // Create master gain node
         this.masterGain = this.audioContext.createGain();
         this.masterGain.connect(this.audioContext.destination);
-        this.masterGain.gain.setValueAtTime(this.masterVolume, this.audioContext.currentTime);
+        // Set higher initial volume for mobile devices
+        const initialVolume = this.isIOS ? this.masterVolume * 2 : this.masterVolume;
+        this.masterGain.gain.setValueAtTime(initialVolume, this.audioContext.currentTime);
         
         this.ready = true;
         console.log('TinySynth engine initialized successfully');
@@ -70,14 +73,19 @@ class TinySynthEngine {
   private async ensureAudioContextRunning(): Promise<void> {
     if (!this.audioContext) return;
     
+    console.log('TinySynth: Audio context state before resume:', this.audioContext.state);
+    
     if (this.audioContext.state === 'suspended') {
       try {
         await this.audioContext.resume();
-        console.log('Audio context resumed successfully');
+        console.log('TinySynth: Audio context resumed successfully, new state:', this.audioContext.state);
+        this.userInteractionReceived = true;
       } catch (error) {
         console.error('Failed to resume audio context:', error);
         throw error;
       }
+    } else if (this.audioContext.state === 'running') {
+      this.userInteractionReceived = true;
     }
   }
 
@@ -143,7 +151,7 @@ class TinySynthEngine {
     }
   }
 
-  public async playNote(midiNote: number, velocity = 100): Promise<void> {
+  public async playNote(midiNote: number, velocity = 127): Promise<void> {
     await this.ensureInitialized();
     
     if (!this.ready || !this.audioContext || !this.masterGain) {
@@ -152,8 +160,16 @@ class TinySynthEngine {
     }
     
     try {
+      console.log('TinySynth: Attempting to play note', midiNote, 'velocity', velocity);
+      
       // Ensure audio context is running (critical for iOS)
       await this.ensureAudioContextRunning();
+      
+      // For iOS, check if we have user interaction
+      if (this.isIOS && !this.userInteractionReceived) {
+        console.log('TinySynth: iOS detected but no user interaction received yet');
+        return;
+      }
       
       // Stop any existing note with the same MIDI number
       this.stopNote(midiNote);
@@ -163,6 +179,7 @@ class TinySynthEngine {
       
       // Calculate frequency from MIDI note
       const frequency = 440 * Math.pow(2, (midiNote - 69) / 12);
+      console.log('TinySynth: Playing frequency', frequency, 'Hz');
       
       // Create oscillators for harmonics
       const oscillators: OscillatorNode[] = [];
@@ -181,8 +198,9 @@ class TinySynthEngine {
           osc.type = config.waveType;
           osc.frequency.setValueAtTime(frequency * (index + 1), this.audioContext!.currentTime);
           
-          // Set harmonic amplitude - increase volume for mobile
-          const amplitude = harmonic * (velocity / 127) * (this.isIOS ? 0.5 : 0.3);
+          // Increase amplitude significantly for iOS
+          const baseAmplitude = harmonic * (velocity / 127);
+          const amplitude = this.isIOS ? baseAmplitude * 1.5 : baseAmplitude * 0.4;
           harmonicGain.gain.setValueAtTime(amplitude, this.audioContext!.currentTime);
           
           osc.connect(harmonicGain);
@@ -199,15 +217,23 @@ class TinySynthEngine {
       const decayTime = config.decay;
       const sustainLevel = config.sustain * (velocity / 127);
       
-      // Attack
+      // Attack - start from 0 and ramp up
       noteGain.gain.setValueAtTime(0, now);
-      noteGain.gain.linearRampToValueAtTime((velocity / 127) * (this.isIOS ? 1.5 : 1), now + attackTime);
+      const peakGain = (velocity / 127) * (this.isIOS ? 2.0 : 1.0);
+      noteGain.gain.linearRampToValueAtTime(peakGain, now + attackTime);
       
       // Decay to sustain
-      noteGain.gain.exponentialRampToValueAtTime(Math.max(sustainLevel, 0.001), now + attackTime + decayTime);
+      const sustainGain = Math.max(sustainLevel * (this.isIOS ? 1.5 : 1.0), 0.001);
+      noteGain.gain.exponentialRampToValueAtTime(sustainGain, now + attackTime + decayTime);
       
       // Start all oscillators
-      oscillators.forEach(osc => osc.start(now));
+      oscillators.forEach(osc => {
+        try {
+          osc.start(now);
+        } catch (err) {
+          console.warn('Failed to start oscillator:', err);
+        }
+      });
       
       // Store the note
       const note: TinySynthNote = {
@@ -219,18 +245,44 @@ class TinySynthEngine {
       };
       
       this.activeNotes.set(midiNote, note);
+      console.log('TinySynth: Note started successfully');
       
     } catch (error) {
       console.error('Error playing note:', error);
-      // On iOS, if audio context fails, try to resume it
-      if (this.isIOS && this.audioContext && this.audioContext.state === 'suspended') {
-        console.log('Attempting to resume audio context after error');
-        try {
-          await this.audioContext.resume();
-        } catch (resumeError) {
-          console.error('Failed to resume audio context:', resumeError);
-        }
+      // For iOS, attempt to create a simple test tone
+      if (this.isIOS) {
+        this.playFallbackTone(midiNote);
       }
+    }
+  }
+
+  private playFallbackTone(midiNote: number): void {
+    if (!this.audioContext || !this.masterGain) return;
+    
+    try {
+      console.log('TinySynth: Attempting fallback tone for iOS');
+      const frequency = 440 * Math.pow(2, (midiNote - 69) / 12);
+      
+      const osc = this.audioContext.createOscillator();
+      const gain = this.audioContext.createGain();
+      
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
+      
+      const now = this.audioContext.currentTime;
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.3, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 1.0);
+      
+      osc.start(now);
+      osc.stop(now + 1.0);
+      
+      console.log('TinySynth: Fallback tone played');
+    } catch (err) {
+      console.error('TinySynth: Fallback tone failed:', err);
     }
   }
 
@@ -278,9 +330,12 @@ class TinySynthEngine {
     try {
       this.masterVolume = Math.max(0, Math.min(1, volume));
       const now = this.audioContext!.currentTime;
-      // Increase volume for iOS
-      const adjustedVolume = this.isIOS ? Math.max(this.masterVolume * 1.5, 0.001) : Math.max(this.masterVolume, 0.001);
+      // Significantly increase volume for iOS
+      const adjustedVolume = this.isIOS ? 
+        Math.max(this.masterVolume * 2.5, 0.001) : 
+        Math.max(this.masterVolume, 0.001);
       this.masterGain.gain.exponentialRampToValueAtTime(adjustedVolume, now + 0.1);
+      console.log('TinySynth: Volume set to', adjustedVolume, 'for iOS:', this.isIOS);
     } catch (error) {
       console.error('Error setting volume:', error);
     }
