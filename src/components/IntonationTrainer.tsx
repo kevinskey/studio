@@ -126,77 +126,72 @@ export const IntonationTrainer = () => {
     };
   }, [cleanupAudio]);
 
-  const playReferenceNote = async () => {
+  const toggleReferenceNote = async () => {
     if (!synthReady) {
-      console.log('Synth not ready, cannot play reference note');
+      console.log('Synth not ready, cannot toggle reference note');
       return;
     }
     
     if (isPlayingReference) {
-      console.log('Already playing reference note, ignoring request');
-      return;
-    }
-    
-    try {
-      // Stop any existing note first, but don't interfere with our new playback
-      if (currentNoteRef.current && currentNoteRef.current !== selectedNote) {
-        await stopNote(currentNoteRef.current);
-      }
+      // Stop the currently playing note
+      console.log('Stopping reference note');
       
-      // Clear any existing timeout
       if (playbackTimeoutRef.current) {
         clearTimeout(playbackTimeoutRef.current);
         playbackTimeoutRef.current = null;
       }
       
-      setIsPlayingReference(true);
-      currentNoteRef.current = selectedNote;
-      
-      console.log('Playing reference note:', selectedNote);
-      await playNote(selectedNote, 80);
-      
-      // Stop the note after 2 seconds
-      playbackTimeoutRef.current = setTimeout(async () => {
+      if (currentNoteRef.current) {
         try {
-          if (currentNoteRef.current === selectedNote) {
-            await stopNote(selectedNote);
-            currentNoteRef.current = null;
-          }
-          setIsPlayingReference(false);
-          console.log('Reference note stopped automatically');
+          await stopNote(currentNoteRef.current);
         } catch (error) {
-          console.error('Error auto-stopping reference note:', error);
-          setIsPlayingReference(false);
+          console.error('Error stopping reference note:', error);
         }
-      }, 2000);
-      
-    } catch (error) {
-      console.error('Error playing reference note:', error);
-      setIsPlayingReference(false);
-      currentNoteRef.current = null;
-    }
-  };
-
-  const stopReferenceNote = async () => {
-    if (!synthReady || !isPlayingReference) return;
-    
-    console.log('Manually stopping reference note');
-    
-    if (playbackTimeoutRef.current) {
-      clearTimeout(playbackTimeoutRef.current);
-      playbackTimeoutRef.current = null;
-    }
-    
-    if (currentNoteRef.current) {
-      try {
-        await stopNote(currentNoteRef.current);
-      } catch (error) {
-        console.error('Error manually stopping reference note:', error);
+        currentNoteRef.current = null;
       }
-      currentNoteRef.current = null;
+      
+      setIsPlayingReference(false);
+    } else {
+      // Start playing the note
+      try {
+        // Stop any existing note first
+        if (currentNoteRef.current && currentNoteRef.current !== selectedNote) {
+          await stopNote(currentNoteRef.current);
+        }
+        
+        // Clear any existing timeout
+        if (playbackTimeoutRef.current) {
+          clearTimeout(playbackTimeoutRef.current);
+          playbackTimeoutRef.current = null;
+        }
+        
+        setIsPlayingReference(true);
+        currentNoteRef.current = selectedNote;
+        
+        console.log('Playing reference note:', selectedNote);
+        await playNote(selectedNote, 80);
+        
+        // Stop the note after 2 seconds
+        playbackTimeoutRef.current = setTimeout(async () => {
+          try {
+            if (currentNoteRef.current === selectedNote) {
+              await stopNote(selectedNote);
+              currentNoteRef.current = null;
+            }
+            setIsPlayingReference(false);
+            console.log('Reference note stopped automatically');
+          } catch (error) {
+            console.error('Error auto-stopping reference note:', error);
+            setIsPlayingReference(false);
+          }
+        }, 2000);
+        
+      } catch (error) {
+        console.error('Error playing reference note:', error);
+        setIsPlayingReference(false);
+        currentNoteRef.current = null;
+      }
     }
-    
-    setIsPlayingReference(false);
   };
 
   const handleToggleListening = () => {
@@ -297,24 +292,23 @@ export const IntonationTrainer = () => {
           {/* Reference Note Controls */}
           <div className="flex items-center justify-center gap-4">
             <Button
-              onClick={playReferenceNote}
+              onClick={toggleReferenceNote}
               disabled={!synthReady}
+              variant={isPlayingReference ? "destructive" : "default"}
               className="flex items-center gap-2"
             >
-              <Play className="h-4 w-4" />
-              Play Reference ({selectedNote})
+              {isPlayingReference ? (
+                <>
+                  <Square className="h-4 w-4" />
+                  Stop Reference
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4" />
+                  Play Reference ({selectedNote})
+                </>
+              )}
             </Button>
-            
-            {isPlayingReference && (
-              <Button
-                onClick={stopReferenceNote}
-                variant="destructive"
-                className="flex items-center gap-2"
-              >
-                <Square className="h-4 w-4" />
-                Stop
-              </Button>
-            )}
           </div>
 
           {/* Microphone Controls */}
@@ -400,7 +394,7 @@ export const IntonationTrainer = () => {
             <h4 className="font-medium">How to use:</h4>
             <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
               <li>Select a target note by scrolling through the note picker</li>
-              <li>Click "Play Reference" to hear the target pitch</li>
+              <li>Click "Play Reference" to hear the target pitch (click again to stop)</li>
               <li>Click "Start Listening" to begin pitch detection</li>
               <li>Sing or play the note and watch the gauge for real-time feedback</li>
               <li>Stay in the green zone for perfect pitch!</li>
