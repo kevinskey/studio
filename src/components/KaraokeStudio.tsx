@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Mic } from 'lucide-react';
@@ -35,52 +36,63 @@ export const KaraokeStudio = () => {
 
   const allTracks = [...customTracks];
 
+  // Initialize audio element and check permissions - only once
   useEffect(() => {
-    // Initialize audio element only once
     if (!trackAudioRef.current) {
       trackAudioRef.current = new Audio();
       trackAudioRef.current.crossOrigin = "anonymous";
       trackAudioRef.current.preload = "metadata";
     }
 
-    // Check microphone permissions on component mount
     checkMicrophonePermissions();
     
     return () => {
-      // Clean up custom track URLs
       customTracks.forEach(track => {
         if (track.url.startsWith('blob:')) {
           URL.revokeObjectURL(track.url);
         }
       });
     };
-  }, []);
+  }, []); // Empty dependency array - only run once
 
-  // Separate effect for track loading to prevent multiple reloads
+  // Handle track loading separately
   useEffect(() => {
-    if (trackAudioRef.current && selectedTrack && !trackLoadedRef.current) {
+    if (trackAudioRef.current && selectedTrack) {
       console.log('Loading track:', selectedTrack.title);
       trackAudioRef.current.src = selectedTrack.url;
       trackAudioRef.current.volume = trackVolume;
+      trackLoadedRef.current = false;
       
-      trackAudioRef.current.onloadeddata = () => {
+      const handleLoadedData = () => {
         console.log('Track loaded successfully');
         trackLoadedRef.current = true;
       };
       
-      trackAudioRef.current.onerror = (e) => {
+      const handleError = (e: Event) => {
         console.error('Error loading track:', e);
         toast.error('Failed to load the selected track');
         trackLoadedRef.current = false;
       };
       
-      trackAudioRef.current.onended = () => {
+      const handleEnded = () => {
         setIsPlayingTrack(false);
+      };
+
+      trackAudioRef.current.addEventListener('loadeddata', handleLoadedData);
+      trackAudioRef.current.addEventListener('error', handleError);
+      trackAudioRef.current.addEventListener('ended', handleEnded);
+      
+      return () => {
+        if (trackAudioRef.current) {
+          trackAudioRef.current.removeEventListener('loadeddata', handleLoadedData);
+          trackAudioRef.current.removeEventListener('error', handleError);
+          trackAudioRef.current.removeEventListener('ended', handleEnded);
+        }
       };
     }
   }, [selectedTrack]);
 
-  // Update volume without reloading track
+  // Handle volume changes separately
   useEffect(() => {
     if (trackAudioRef.current) {
       trackAudioRef.current.volume = trackVolume;
@@ -144,12 +156,6 @@ export const KaraokeStudio = () => {
 
   return (
     <div className="w-full max-w-2xl mx-auto space-y-6">
-      <audio
-        ref={trackAudioRef}
-        onEnded={() => setIsPlayingTrack(false)}
-        className="hidden"
-      />
-
       {/* Microphone Permission Status */}
       {!micPermissionGranted && (
         <Card className="p-4 bg-yellow-50 border-yellow-200">
