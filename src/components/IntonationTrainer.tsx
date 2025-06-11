@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,6 @@ export const IntonationTrainer = () => {
   const [attempts, setAttempts] = useState(0);
   const currentNoteRef = useRef<string | null>(null);
   const playbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const isCleaningUpRef = useRef(false);
 
   const {
     isListening,
@@ -83,18 +83,12 @@ export const IntonationTrainer = () => {
     
     currentNoteRef.current = null;
     setIsPlayingReference(false);
-    isCleaningUpRef.current = false;
     console.log('IntonationTrainer: Emergency stop completed');
   }, [stopNote, resetAudio]);
 
-  // Cleanup function with loop prevention
+  // Cleanup function - only called on unmount
   const cleanupAudio = useCallback(async () => {
-    if (isCleaningUpRef.current) {
-      return; // Prevent cleanup loop
-    }
-    
-    isCleaningUpRef.current = true;
-    console.log('IntonationTrainer: Cleaning up audio...');
+    console.log('IntonationTrainer: Cleaning up audio on unmount...');
     
     try {
       // Clear any pending timeouts
@@ -114,12 +108,12 @@ export const IntonationTrainer = () => {
       }
       
       setIsPlayingReference(false);
-    } finally {
-      isCleaningUpRef.current = false;
+    } catch (error) {
+      console.error('Error during cleanup:', error);
     }
   }, [stopNote]);
 
-  // Cleanup on unmount - use gentle cleanup, not emergency stop
+  // Cleanup on unmount only
   useEffect(() => {
     return () => {
       cleanupAudio();
@@ -207,14 +201,6 @@ export const IntonationTrainer = () => {
     setAttempts(0);
   };
 
-  const handleNoteSelection = async (note: string) => {
-    if (note === selectedNote) return; // Don't cleanup if same note
-    
-    // Clean up before changing notes
-    await cleanupAudio();
-    setSelectedNote(note);
-  };
-
   // Check if current pitch matches selected note
   const isInTune = pitchData && pitchData.note === selectedNote && Math.abs(pitchData.cents) <= 10;
   const currentCents = pitchData?.note === selectedNote ? pitchData.cents : 0;
@@ -275,7 +261,7 @@ export const IntonationTrainer = () => {
                     variant={selectedNote === note ? "default" : "outline"}
                     size="sm"
                     className="flex-shrink-0 min-w-[60px]"
-                    onClick={() => handleNoteSelection(note)}
+                    onClick={() => setSelectedNote(note)}
                   >
                     {note}
                   </Button>
