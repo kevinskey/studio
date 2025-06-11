@@ -1,9 +1,9 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Play, Pause, Volume2 } from 'lucide-react';
-import { useAudioContext } from '@/hooks/useAudioContext';
 
 export const Metronome = () => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -12,45 +12,38 @@ export const Metronome = () => {
   const [timeSignature, setTimeSignature] = useState(4);
   const [meterSignature, setMeterSignature] = useState(4); // Bottom number of time signature
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const { audioContext, getAudioContext, initializeAudio } = useAudioContext();
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
+    audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
       }
     };
   }, []);
 
-  const playClick = async (isAccent = false) => {
-    let context = getAudioContext();
-    if (!context) {
-      context = await initializeAudio();
-      if (!context) return;
-    }
+  const playClick = (isAccent = false) => {
+    if (!audioContextRef.current) return;
 
-    try {
-      const oscillator = context.createOscillator();
-      const gainNode = context.createGain();
+    const oscillator = audioContextRef.current.createOscillator();
+    const gainNode = audioContextRef.current.createGain();
 
-      oscillator.connect(gainNode);
-      gainNode.connect(context.destination);
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContextRef.current.destination);
 
-      oscillator.frequency.setValueAtTime(
-        isAccent ? 880 : 440,
-        context.currentTime
-      );
-      oscillator.type = 'square';
+    oscillator.frequency.setValueAtTime(
+      isAccent ? 880 : 440,
+      audioContextRef.current.currentTime
+    );
+    oscillator.type = 'square';
 
-      gainNode.gain.setValueAtTime(0, context.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.1, context.currentTime + 0.01);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.1);
+    gainNode.gain.setValueAtTime(0, audioContextRef.current.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.1, audioContextRef.current.currentTime + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContextRef.current.currentTime + 0.1);
 
-      oscillator.start(context.currentTime);
-      oscillator.stop(context.currentTime + 0.1);
-    } catch (error) {
-      console.error('Audio playback error:', error);
-    }
+    oscillator.start(audioContextRef.current.currentTime);
+    oscillator.stop(audioContextRef.current.currentTime + 0.1);
   };
 
   const startMetronome = () => {
@@ -92,6 +85,14 @@ export const Metronome = () => {
       startMetronome();
     }
   }, [bpm, timeSignature, meterSignature]);
+
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, []);
 
   const getTimeSignatureDisplay = () => {
     return `${timeSignature}/${meterSignature}`;

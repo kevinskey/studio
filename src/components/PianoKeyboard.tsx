@@ -1,8 +1,7 @@
-
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Volume2, VolumeX, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useAudioContext } from '@/hooks/useAudioContext';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Volume2, VolumeX } from 'lucide-react';
 
 interface Note {
   name: string;
@@ -10,151 +9,135 @@ interface Note {
   isSharp: boolean;
 }
 
+type InstrumentType = 'grand-piano' | 'upright-piano' | 'epiano' | 'organ' | 'clavinet' | 'synth';
+
+interface InstrumentConfig {
+  name: string;
+  waveType: OscillatorType;
+  attackTime: number;
+  releaseTime: number;
+  harmonics?: number[];
+}
+
+const instruments: Record<InstrumentType, InstrumentConfig> = {
+  'grand-piano': {
+    name: 'Grand Piano',
+    waveType: 'triangle',
+    attackTime: 0.01,
+    releaseTime: 2.0,
+    harmonics: [1, 0.3, 0.15, 0.05]
+  },
+  'upright-piano': {
+    name: 'Upright Piano',
+    waveType: 'triangle',
+    attackTime: 0.02,
+    releaseTime: 1.5,
+    harmonics: [1, 0.4, 0.2, 0.1]
+  },
+  'epiano': {
+    name: 'Electric Piano',
+    waveType: 'triangle',
+    attackTime: 0.005,
+    releaseTime: 1.0,
+    harmonics: [1, 0.5, 0.25, 0.125]
+  },
+  'organ': {
+    name: 'Organ',
+    waveType: 'sine',
+    attackTime: 0.1,
+    releaseTime: 0.5,
+    harmonics: [1, 0.8, 0.6, 0.4, 0.2]
+  },
+  'clavinet': {
+    name: 'Clavinet',
+    waveType: 'square',
+    attackTime: 0.001,
+    releaseTime: 0.3,
+    harmonics: [1, 0.6, 0.3, 0.15]
+  },
+  'synth': {
+    name: 'Synth',
+    waveType: 'sawtooth',
+    attackTime: 0.05,
+    releaseTime: 0.8,
+    harmonics: [1, 0.7, 0.5, 0.3, 0.2]
+  }
+};
+
 export const PianoKeyboard = () => {
   const [isPlaying, setIsPlaying] = useState<string | null>(null);
-  const [volume, setVolume] = useState(0.3);
+  const [volume, setVolume] = useState(0.5);
   const [isMuted, setIsMuted] = useState(false);
-  const [currentOctave, setCurrentOctave] = useState(4);
-  const { audioContext, initializeAudio, isAudioEnabled } = useAudioContext();
+  const [selectedInstrument, setSelectedInstrument] = useState<InstrumentType>('grand-piano');
+  const audioContextRef = useRef<AudioContext | null>(null);
 
-  const touchStartX = useRef<number | null>(null);
-  const isDragging = useRef(false);
-  const currentOscillators = useRef<Set<OscillatorNode>>(new Set());
+  // Generate 3 octaves of notes starting from C3
+  const notes: Note[] = [];
+  const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const baseFrequency = 130.81; // C3
 
-  // Generate notes for current octave
-  const generateNotes = (octave: number): Note[] => {
-    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-    const baseFrequency = 261.63 * Math.pow(2, octave - 4); // C4 = 261.63 Hz
-    
-    return noteNames.map((noteName, i) => ({
-      name: `${noteName}${octave}`,
-      frequency: baseFrequency * Math.pow(2, i / 12),
-      isSharp: noteName.includes('#')
-    }));
-  };
-
-  const notes = generateNotes(currentOctave);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    isDragging.current = false;
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (touchStartX.current === null) return;
-    
-    const deltaX = e.touches[0].clientX - touchStartX.current;
-    
-    if (Math.abs(deltaX) > 50) {
-      isDragging.current = true;
-      e.preventDefault();
+  for (let octave = 0; octave < 3; octave++) {
+    for (let i = 0; i < noteNames.length; i++) {
+      const noteName = noteNames[i];
+      const frequency = baseFrequency * Math.pow(2, (octave * 12 + i) / 12);
+      notes.push({
+        name: `${noteName}${3 + octave}`,
+        frequency,
+        isSharp: noteName.includes('#')
+      });
     }
-  };
+  }
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!isDragging.current || touchStartX.current === null) {
-      touchStartX.current = null;
-      isDragging.current = false;
-      return;
-    }
-    
-    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
-    
-    if (Math.abs(deltaX) > 80) {
-      if (deltaX > 0 && currentOctave > 1) {
-        setCurrentOctave(prev => prev - 1);
-      } else if (deltaX < 0 && currentOctave < 7) {
-        setCurrentOctave(prev => prev + 1);
+  useEffect(() => {
+    audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    return () => {
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
       }
-    }
-    
-    touchStartX.current = null;
-    isDragging.current = false;
-  };
+    };
+  }, []);
 
-  const stopAllSounds = () => {
-    currentOscillators.current.forEach(osc => {
-      try {
-        osc.stop();
-      } catch (e) {
-        // Oscillator already stopped
-      }
-    });
-    currentOscillators.current.clear();
-    setIsPlaying(null);
-  };
+  const playNote = (frequency: number, noteName: string) => {
+    if (!audioContextRef.current || isMuted) return;
 
-  const playNote = async (frequency: number, noteName: string) => {
-    if (isMuted) return;
+    const instrument = instruments[selectedInstrument];
+    const oscillators: OscillatorNode[] = [];
+    const gainNodes: GainNode[] = [];
 
-    let context = audioContext;
-    if (!context || !isAudioEnabled) {
-      try {
-        context = await initializeAudio();
-        if (!context) {
-          console.error('Failed to initialize audio context');
-          return;
-        }
-      } catch (error) {
-        console.error('Audio initialization failed:', error);
-        return;
-      }
-    }
+    // Create harmonics for richer sound
+    instrument.harmonics?.forEach((harmonic, index) => {
+      const oscillator = audioContextRef.current!.createOscillator();
+      const gainNode = audioContextRef.current!.createGain();
 
-    console.log('Audio context state:', context.state);
-    console.log('Attempting to play note:', noteName, 'at', frequency.toFixed(2), 'Hz');
-
-    try {
-      // Stop any currently playing note
-      stopAllSounds();
-
-      // Create oscillator and gain
-      const oscillator = context.createOscillator();
-      const gainNode = context.createGain();
-
-      // Connect nodes
       oscillator.connect(gainNode);
-      gainNode.connect(context.destination);
+      gainNode.connect(audioContextRef.current!.destination);
 
-      // Set frequency and wave type
-      oscillator.frequency.value = frequency;
-      oscillator.type = 'triangle';
+      oscillator.frequency.setValueAtTime(
+        frequency * (index + 1), 
+        audioContextRef.current!.currentTime
+      );
+      oscillator.type = instrument.waveType;
 
-      // Set volume with smooth envelope
-      const now = context.currentTime;
-      gainNode.gain.setValueAtTime(0, now);
-      gainNode.gain.linearRampToValueAtTime(volume, now + 0.01);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+      const harmonicVolume = volume * 0.3 * harmonic;
+      gainNode.gain.setValueAtTime(0, audioContextRef.current!.currentTime);
+      gainNode.gain.linearRampToValueAtTime(
+        harmonicVolume, 
+        audioContextRef.current!.currentTime + instrument.attackTime
+      );
+      gainNode.gain.exponentialRampToValueAtTime(
+        0.001, 
+        audioContextRef.current!.currentTime + instrument.releaseTime
+      );
 
-      // Start playing
-      oscillator.start(now);
-      oscillator.stop(now + 1.5);
+      oscillator.start(audioContextRef.current!.currentTime);
+      oscillator.stop(audioContextRef.current!.currentTime + instrument.releaseTime);
 
-      // Track oscillator
-      currentOscillators.current.add(oscillator);
-      
-      // Clean up when done
-      oscillator.onended = () => {
-        currentOscillators.current.delete(oscillator);
-        if (currentOscillators.current.size === 0) {
-          setIsPlaying(null);
-        }
-      };
-
-      setIsPlaying(noteName);
-      console.log(`Successfully playing note: ${noteName} at ${frequency.toFixed(2)}Hz`);
-
-    } catch (error) {
-      console.error('Audio playback error:', error);
-    }
-  };
-
-  const changeOctave = (direction: 'up' | 'down') => {
-    setCurrentOctave(prev => {
-      if (direction === 'up' && prev < 7) return prev + 1;
-      if (direction === 'down' && prev > 1) return prev - 1;
-      return prev;
+      oscillators.push(oscillator);
+      gainNodes.push(gainNode);
     });
+
+    setIsPlaying(noteName);
+    setTimeout(() => setIsPlaying(null), 200);
   };
 
   const whiteKeys = notes.filter(note => !note.isSharp);
@@ -162,20 +145,24 @@ export const PianoKeyboard = () => {
 
   return (
     <div className="w-full space-y-6">
-      {/* Controls */}
+      {/* Sound Controller */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-muted rounded-lg">
         <div className="flex items-center gap-4">
-          {!isAudioEnabled && (
-            <Button
-              onClick={initializeAudio}
-              variant="outline"
-              size="sm"
-              className="bg-green-500 text-white hover:bg-green-600"
-            >
-              <Volume2 className="h-4 w-4 mr-2" />
-              Enable Audio
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">Instrument:</span>
+            <Select value={selectedInstrument} onValueChange={(value) => setSelectedInstrument(value as InstrumentType)}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(instruments).map(([key, instrument]) => (
+                  <SelectItem key={key} value={key}>
+                    {instrument.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div className="flex items-center gap-4">
@@ -203,101 +190,89 @@ export const PianoKeyboard = () => {
         </div>
       </div>
 
-      {/* Octave Controls */}
-      <div className="flex items-center justify-center gap-4 p-4 bg-muted/50 rounded-lg">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => changeOctave('down')}
-          disabled={currentOctave <= 1}
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Lower
-        </Button>
+      {/* Realistic Piano Keyboard */}
+      <div className="relative w-full overflow-hidden bg-gray-900 p-2 rounded-lg shadow-2xl">
+        <style>{`
+          .piano-container {
+            --white-key-width: max(calc(100vw / 21 - 4px), 44px);
+            --black-key-width: calc(var(--white-key-width) * 0.6);
+            --white-key-height: max(calc(var(--white-key-width) * 6), 200px);
+            --black-key-height: calc(var(--white-key-height) * 0.6);
+          }
+        `}</style>
         
-        <div className="text-center">
-          <div className="text-lg font-semibold">Octave {currentOctave}</div>
-          <div className="text-sm text-muted-foreground">Swipe to change</div>
-        </div>
-        
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => changeOctave('up')}
-          disabled={currentOctave >= 7}
-        >
-          Higher
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
-
-      {/* Piano Keyboard */}
-      <div 
-        className="relative w-full bg-gray-900 p-2 rounded-lg shadow-2xl select-none"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        style={{ touchAction: 'pan-y' }}
-      >
-        <div className="relative h-48 flex">
+        <div className="piano-container relative w-full" style={{ height: 'max(calc(max(calc(100vw / 21 - 4px), 44px) * 6), 200px)' }}>
           {/* White Keys */}
-          {whiteKeys.map((note, index) => (
-            <button
-              key={note.name}
-              className={`flex-1 h-full mx-0.5 rounded-b-md border transition-all ${
-                isPlaying === note.name
-                  ? 'bg-gray-300 scale-95 shadow-inner'
-                  : 'bg-white hover:bg-gray-50 shadow-lg'
-              }`}
-              onMouseDown={() => playNote(note.frequency, note.name)}
-              onTouchStart={(e) => {
-                if (!isDragging.current) {
+          <div className="flex w-full h-full">
+            {whiteKeys.map((note, index) => (
+              <button
+                key={note.name}
+                className={`relative h-full transition-all duration-150 ease-out touch-manipulation select-none ${
+                  isPlaying === note.name
+                    ? 'bg-gradient-to-b from-gray-200 via-gray-300 to-gray-100 transform translate-y-1 shadow-inner'
+                    : 'bg-gradient-to-b from-white via-gray-50 to-gray-100 hover:from-gray-50 hover:via-gray-100 hover:to-gray-200 shadow-lg hover:shadow-xl'
+                } border-r border-gray-300 rounded-b-md`}
+                style={{
+                  width: 'var(--white-key-width)',
+                  borderLeft: index === 0 ? '1px solid #d1d5db' : 'none'
+                }}
+                onMouseDown={() => playNote(note.frequency, note.name)}
+                onTouchStart={(e) => {
                   e.preventDefault();
                   playNote(note.frequency, note.name);
-                }
-              }}
-            >
-              <span className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-xs text-gray-600">
-                {note.name.replace(/\d/, '')}
-              </span>
-            </button>
-          ))}
+                }}
+              >
+                <span className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 font-medium pointer-events-none">
+                  {note.name.replace(/\d/, '')}
+                </span>
+              </button>
+            ))}
+          </div>
 
           {/* Black Keys */}
-          <div className="absolute top-0 left-0 w-full h-2/3 flex pointer-events-none">
+          <div className="absolute top-0 left-0 flex w-full h-full pointer-events-none">
             {whiteKeys.map((whiteNote, whiteIndex) => {
               const noteWithoutOctave = whiteNote.name.replace(/\d/, '');
               const hasBlackKeyAfter = ['C', 'D', 'F', 'G', 'A'].includes(noteWithoutOctave);
               
               if (!hasBlackKeyAfter) {
-                return <div key={whiteNote.name} className="flex-1" />;
+                return (
+                  <div 
+                    key={whiteNote.name} 
+                    style={{ width: 'var(--white-key-width)' }}
+                  />
+                );
               }
 
               const blackKeyName = noteWithoutOctave + '#' + whiteNote.name.match(/\d/)?.[0];
               const blackKey = blackKeys.find(key => key.name === blackKeyName);
 
               return (
-                <div key={whiteNote.name} className="flex-1 relative">
+                <div 
+                  key={whiteNote.name} 
+                  className="relative"
+                  style={{ width: 'var(--white-key-width)' }}
+                >
                   {blackKey && (
                     <button
-                      className={`absolute w-8 h-full rounded-b-md transition-all pointer-events-auto ${
+                      className={`absolute top-0 z-10 transition-all duration-150 ease-out touch-manipulation select-none pointer-events-auto ${
                         isPlaying === blackKey.name
-                          ? 'bg-gray-600 scale-95 shadow-inner'
-                          : 'bg-black hover:bg-gray-800 shadow-xl'
-                      }`}
+                          ? 'bg-gradient-to-b from-gray-700 via-gray-800 to-gray-600 transform translate-y-1 shadow-inner'
+                          : 'bg-gradient-to-b from-gray-800 via-gray-900 to-black hover:from-gray-700 hover:via-gray-800 hover:to-gray-900 shadow-xl hover:shadow-2xl'
+                      } rounded-b-md border border-gray-600`}
                       style={{
-                        right: '-16px',
-                        zIndex: 10
+                        width: 'var(--black-key-width)',
+                        height: 'var(--black-key-height)',
+                        left: 'calc(50% + var(--white-key-width) * 0.2)',
+                        transform: 'translateX(-50%)'
                       }}
                       onMouseDown={() => playNote(blackKey.frequency, blackKey.name)}
                       onTouchStart={(e) => {
-                        if (!isDragging.current) {
-                          e.preventDefault();
-                          playNote(blackKey.frequency, blackKey.name);
-                        }
+                        e.preventDefault();
+                        playNote(blackKey.frequency, blackKey.name);
                       }}
                     >
-                      <span className="absolute bottom-3 left-1/2 transform -translate-x-1/2 text-xs text-white">
+                      <span className="absolute bottom-3 left-1/2 transform -translate-x-1/2 text-xs text-white font-medium pointer-events-none">
                         {blackKey.name.replace(/\d/, '')}
                       </span>
                     </button>
@@ -310,8 +285,8 @@ export const PianoKeyboard = () => {
       </div>
 
       <div className="text-center text-sm text-muted-foreground">
-        <p>Tap keys to play • Swipe left/right to change octaves</p>
-        <p className="mt-1">Current: Piano • Octave {currentOctave}</p>
+        <p>Tap or click the keys to play notes</p>
+        <p className="mt-1">Current instrument: {instruments[selectedInstrument].name}</p>
       </div>
     </div>
   );

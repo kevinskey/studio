@@ -10,7 +10,6 @@ import { PitchPipe } from '@/components/PitchPipe';
 import { MusicNotation } from '@/components/MusicNotation';
 import { RecordingStudio } from '@/components/RecordingStudio';
 import { KaraokeStudio } from '@/components/KaraokeStudio';
-import { AudioResetButton } from '@/components/AudioResetButton';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('piano');
@@ -24,9 +23,6 @@ const Index = () => {
             Music Studio
           </h1>
           <p className="text-gray-600">Your complete mobile music creation suite</p>
-          <div className="flex justify-center mt-4">
-            <AudioResetButton />
-          </div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -11,7 +12,6 @@ interface KaraokeTrack {
   artist: string;
   duration: number;
   url: string;
-  genre?: string;
 }
 
 interface Recording {
@@ -38,87 +38,28 @@ export const KaraokeStudio = () => {
   const audioContextRef = useRef<AudioContext | null>(null);
   const mixedStreamRef = useRef<MediaStream | null>(null);
 
-  // Updated karaoke tracks with working audio sources
+  // Sample karaoke tracks (in a real app, these would be loaded from a server)
   const karaoketracks: KaraokeTrack[] = [
     {
       id: '1',
       title: 'Happy Birthday',
       artist: 'Traditional',
       duration: 30,
-      genre: 'Traditional',
-      url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
+      url: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCFOh1+/TfSUFKqjQ7N2QO'
     },
     {
       id: '2',
       title: 'Twinkle Twinkle Little Star',
       artist: 'Traditional',
       duration: 45,
-      genre: 'Children\'s',
-      url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
+      url: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCFOh1+/TfSUFKqjQ7N2QO'
     },
     {
       id: '3',
       title: 'Row Row Row Your Boat',
       artist: 'Traditional',
       duration: 40,
-      genre: 'Children\'s',
-      url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
-    },
-    {
-      id: '4',
-      title: 'Mary Had a Little Lamb',
-      artist: 'Traditional',
-      duration: 35,
-      genre: 'Children\'s',
-      url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
-    },
-    {
-      id: '5',
-      title: 'Old MacDonald Had a Farm',
-      artist: 'Traditional',
-      duration: 50,
-      genre: 'Children\'s',
-      url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
-    },
-    {
-      id: '6',
-      title: 'Amazing Grace',
-      artist: 'Traditional',
-      duration: 60,
-      genre: 'Spiritual',
-      url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
-    },
-    {
-      id: '7',
-      title: 'Jingle Bells',
-      artist: 'Traditional',
-      duration: 45,
-      genre: 'Holiday',
-      url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
-    },
-    {
-      id: '8',
-      title: 'Silent Night',
-      artist: 'Traditional',
-      duration: 55,
-      genre: 'Holiday',
-      url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
-    },
-    {
-      id: '9',
-      title: 'This Old Man',
-      artist: 'Traditional',
-      duration: 40,
-      genre: 'Children\'s',
-      url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
-    },
-    {
-      id: '10',
-      title: 'London Bridge Is Falling Down',
-      artist: 'Traditional',
-      duration: 35,
-      genre: 'Children\'s',
-      url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
+      url: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCFOh1+/TfSUFKqjQ7N2QO'
     }
   ];
 
@@ -138,30 +79,16 @@ export const KaraokeStudio = () => {
     const track = karaoketracks.find(t => t.id === trackId);
     setSelectedTrack(track || null);
     setIsPlayingTrack(false);
-    
-    // Update audio element source immediately when track is selected
-    if (track && trackAudioRef.current) {
-      trackAudioRef.current.src = track.url;
-      trackAudioRef.current.load(); // Force reload of the audio element
-      console.log('Track selected and audio source set:', track.url);
-    }
   };
 
   const toggleTrackPlayback = () => {
     if (!selectedTrack || !trackAudioRef.current) return;
 
-    console.log('Attempting to toggle playback. Current state:', isPlayingTrack);
-    console.log('Audio element source:', trackAudioRef.current.src);
-    console.log('Audio element ready state:', trackAudioRef.current.readyState);
-
     if (isPlayingTrack) {
       trackAudioRef.current.pause();
       setIsPlayingTrack(false);
     } else {
-      trackAudioRef.current.play().catch((error) => {
-        console.error('Error playing track:', error);
-        toast.error('Could not play track. The audio source may not be available.');
-      });
+      trackAudioRef.current.play();
       setIsPlayingTrack(true);
     }
   };
@@ -247,10 +174,7 @@ export const KaraokeStudio = () => {
       // Start track playback if not already playing
       if (!isPlayingTrack && trackAudioRef.current) {
         trackAudioRef.current.currentTime = 0;
-        trackAudioRef.current.play().catch((error) => {
-          console.error('Error starting track:', error);
-          toast.error('Could not start track playback');
-        });
+        trackAudioRef.current.play();
         setIsPlayingTrack(true);
       }
       
@@ -308,24 +232,11 @@ export const KaraokeStudio = () => {
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  // Group tracks by genre for better organization
-  const groupedTracks = karaoketracks.reduce((acc, track) => {
-    const genre = track.genre || 'Other';
-    if (!acc[genre]) acc[genre] = [];
-    acc[genre].push(track);
-    return acc;
-  }, {} as Record<string, KaraokeTrack[]>);
-
   return (
     <div className="w-full max-w-2xl mx-auto space-y-6">
       <audio
         ref={trackAudioRef}
         onEnded={() => setIsPlayingTrack(false)}
-        onError={(e) => {
-          console.error('Audio error:', e);
-          toast.error('Audio playback error occurred');
-        }}
-        crossOrigin="anonymous"
         className="hidden"
       />
       <audio
@@ -341,17 +252,10 @@ export const KaraokeStudio = () => {
             <SelectValue placeholder="Select a song to sing along with" />
           </SelectTrigger>
           <SelectContent>
-            {Object.entries(groupedTracks).map(([genre, tracks]) => (
-              <div key={genre}>
-                <div className="px-2 py-1.5 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {genre}
-                </div>
-                {tracks.map((track) => (
-                  <SelectItem key={track.id} value={track.id}>
-                    {track.title} - {track.artist} ({Math.floor(track.duration / 60)}:{(track.duration % 60).toString().padStart(2, '0')})
-                  </SelectItem>
-                ))}
-              </div>
+            {karaoketracks.map((track) => (
+              <SelectItem key={track.id} value={track.id}>
+                {track.title} - {track.artist}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -362,13 +266,15 @@ export const KaraokeStudio = () => {
               <div>
                 <div className="font-semibold">{selectedTrack.title}</div>
                 <div className="text-sm text-gray-600">{selectedTrack.artist}</div>
-                <div className="text-xs text-gray-500">{selectedTrack.genre} • {Math.floor(selectedTrack.duration / 60)}:{(selectedTrack.duration % 60).toString().padStart(2, '0')}</div>
               </div>
               <Button onClick={toggleTrackPlayback} variant="outline">
                 {isPlayingTrack ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                 {isPlayingTrack ? 'Pause' : 'Preview'}
               </Button>
             </div>
+            
+            {/* Set the track URL when selected */}
+            {trackAudioRef.current && (trackAudioRef.current.src = selectedTrack.url)}
           </div>
         )}
       </Card>
@@ -387,13 +293,7 @@ export const KaraokeStudio = () => {
                 max="1"
                 step="0.1"
                 value={trackVolume}
-                onChange={(e) => {
-                  const newVolume = parseFloat(e.target.value);
-                  setTrackVolume(newVolume);
-                  if (trackAudioRef.current) {
-                    trackAudioRef.current.volume = newVolume;
-                  }
-                }}
+                onChange={(e) => setTrackVolume(parseFloat(e.target.value))}
                 className="flex-1"
               />
               <span className="w-8 text-sm">{Math.round(trackVolume * 100)}%</span>
@@ -499,7 +399,6 @@ export const KaraokeStudio = () => {
       <div className="text-center text-sm text-gray-600">
         <p>Professional karaoke recording with track mixing</p>
         <p className="mt-1">Your voice and the backing track are combined into one audio file</p>
-        <p className="mt-1 text-xs">💡 Note: Demo tracks use placeholder audio. Replace URLs with real karaoke tracks for full functionality.</p>
       </div>
     </div>
   );
