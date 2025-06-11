@@ -1,9 +1,8 @@
-
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Play, Square, Mic, MicOff, RotateCcw } from 'lucide-react';
+import { Play, Square, Mic, MicOff, RotateCcw, StopCircle } from 'lucide-react';
 import { usePitchDetection } from '@/hooks/usePitchDetection';
 import { usePianoSynth } from '@/hooks/usePianoSynth';
 import { PitchGauge } from './intonation/PitchGauge';
@@ -30,7 +29,8 @@ export const IntonationTrainer = () => {
   const {
     playNote,
     stopNote,
-    isInitialized: synthReady
+    isInitialized: synthReady,
+    resetAudio
   } = usePianoSynth();
 
   // Generate notes from C2 to C6 (4 octaves)
@@ -48,6 +48,45 @@ export const IntonationTrainer = () => {
   }, []);
 
   const notes = generateNotes();
+
+  // Emergency stop all audio - force stops everything
+  const emergencyStopAll = useCallback(async () => {
+    console.log('Emergency stop: Forcing all audio to stop');
+    
+    // Clear any pending timeouts
+    if (playbackTimeoutRef.current) {
+      clearTimeout(playbackTimeoutRef.current);
+      playbackTimeoutRef.current = null;
+    }
+    
+    // Try to stop all possible notes (brute force approach)
+    const allNotes = ['C2', 'C#2', 'D2', 'D#2', 'E2', 'F2', 'F#2', 'G2', 'G#2', 'A2', 'A#2', 'B2',
+                      'C3', 'C#3', 'D3', 'D#3', 'E3', 'F3', 'F#3', 'G3', 'G#3', 'A3', 'A#3', 'B3',
+                      'C4', 'C#4', 'D4', 'D#4', 'E4', 'F4', 'F#4', 'G4', 'G#4', 'A4', 'A#4', 'B4',
+                      'C5', 'C#5', 'D5', 'D#5', 'E5', 'F5', 'F#5', 'G5', 'G#5', 'A5', 'A#5', 'B5',
+                      'C6', 'C#6', 'D6', 'D#6', 'E6', 'F6', 'F#6', 'G6', 'G#6', 'A6', 'A#6', 'B6'];
+    
+    for (const note of allNotes) {
+      try {
+        await stopNote(note);
+      } catch (error) {
+        // Silently continue - we're trying to stop everything
+      }
+    }
+    
+    // Reset the entire audio system
+    try {
+      await resetAudio();
+    } catch (error) {
+      console.warn('Error resetting audio:', error);
+    }
+    
+    currentNoteRef.current = null;
+    setIsPlayingReference(false);
+    isCleaningUpRef.current = false;
+    
+    console.log('Emergency stop completed');
+  }, [stopNote, resetAudio]);
 
   // Cleanup function with loop prevention
   const cleanupAudio = useCallback(async () => {
@@ -181,6 +220,19 @@ export const IntonationTrainer = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Emergency Stop Button */}
+          <div className="flex justify-center">
+            <Button
+              onClick={emergencyStopAll}
+              variant="destructive"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <StopCircle className="h-4 w-4" />
+              Stop All Audio
+            </Button>
+          </div>
+
           {/* Note Selection */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
