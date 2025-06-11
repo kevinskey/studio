@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { usePianoSynth, SynthInstrumentType } from '@/hooks/usePianoSynth';
 import { InstrumentType } from './types';
@@ -102,6 +101,29 @@ export const usePianoKeyboard = () => {
     setIsPlaying(null);
   };
 
+  const handlePanic = async () => {
+    console.log('Panic button pressed - stopping all notes');
+    
+    // Stop any currently playing note in the UI
+    setIsPlaying(null);
+    
+    // Tell the synth to stop all notes
+    try {
+      // Generate all possible note names and stop them
+      const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+      
+      // Stop notes across multiple octaves to be safe
+      for (let octave = 0; octave <= 8; octave++) {
+        for (const noteName of noteNames) {
+          const fullNoteName = `${noteName}${octave}`;
+          await stopNote(fullNoteName);
+        }
+      }
+    } catch (error) {
+      console.error('Error during panic stop:', error);
+    }
+  };
+
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.targetTouches[0].clientX;
     
@@ -148,6 +170,7 @@ export const usePianoKeyboard = () => {
     hasSynth,
     handlePlayNote,
     handleStopNote,
+    handlePanic,
     handleTouchStart,
     handleTouchMove,
     handleTouchEnd

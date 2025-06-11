@@ -2,7 +2,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Volume2, VolumeX, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Volume2, VolumeX, ChevronLeft, ChevronRight, Square } from 'lucide-react';
 import { InstrumentType, instruments } from './types';
 
 interface PianoControlsProps {
@@ -14,6 +14,7 @@ interface PianoControlsProps {
   setVolume: (volume: number) => void;
   isMuted: boolean;
   setIsMuted: (muted: boolean) => void;
+  onPanic?: () => void;
   isMobile?: boolean;
 }
 
@@ -26,6 +27,7 @@ export const PianoControls: React.FC<PianoControlsProps> = ({
   setVolume,
   isMuted,
   setIsMuted,
+  onPanic,
   isMobile = false
 }) => {
   const controlsClass = isMobile 
@@ -76,6 +78,19 @@ export const PianoControls: React.FC<PianoControlsProps> = ({
       </div>
 
       <div className="flex items-center gap-4">
+        {onPanic && (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={onPanic}
+            className="flex items-center gap-2"
+            title="Stop all playing notes (Panic)"
+          >
+            <Square className="h-4 w-4" />
+            Panic
+          </Button>
+        )}
+        
         <Button
           variant="outline"
           size="sm"

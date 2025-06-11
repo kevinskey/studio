@@ -25,6 +25,7 @@ export const PianoKeyboard = () => {
     isLoading,
     handlePlayNote,
     handleStopNote,
+    handlePanic,
     handleTouchStart,
     handleTouchMove,
     handleTouchEnd
@@ -70,6 +71,7 @@ export const PianoKeyboard = () => {
           setVolume={setVolume}
           isMuted={isMuted}
           setIsMuted={setIsMuted}
+          onPanic={handlePanic}
           isMobile={true}
         />
 
@@ -128,6 +130,7 @@ export const PianoKeyboard = () => {
         setVolume={setVolume}
         isMuted={isMuted}
         setIsMuted={setIsMuted}
+        onPanic={handlePanic}
         isMobile={false}
       />
 
