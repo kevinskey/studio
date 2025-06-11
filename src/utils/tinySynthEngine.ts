@@ -1,22 +1,24 @@
 
-// TinySynth - a WebAssembly-based synthesizer for higher quality piano sounds
-// Based on TinySynth WebAssembly implementation
+// High-quality piano synthesizer using Web Audio API
+// Implements additive synthesis with harmonics for realistic piano sounds
 
 interface TinySynthNote {
   note: number;
   velocity: number;
+  oscillators: OscillatorNode[];
+  gainNode: GainNode;
+  startTime: number;
 }
 
 class TinySynthEngine {
   private static instance: TinySynthEngine;
   private audioContext: AudioContext | null = null;
-  private wasmModule: WebAssembly.Instance | null = null;
-  private wasmMemory: WebAssembly.Memory | null = null;
-  private audioWorklet: AudioWorkletNode | null = null;
+  private masterGain: GainNode | null = null;
   private ready = false;
   private loadingPromise: Promise<void> | null = null;
-  private soundfontLoaded = false;
   private currentProgram = 0; // Default to Piano
+  private activeNotes = new Map<number, TinySynthNote>();
+  private masterVolume = 0.5;
 
   // Singleton pattern
   public static getInstance(): TinySynthEngine {
@@ -38,115 +40,194 @@ class TinySynthEngine {
       try {
         this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
         
-        // Load the audio worklet processor
-        await this.audioContext.audioWorklet.addModule('/tinysynth-processor.js');
-        
-        // Create WebAssembly memory
-        this.wasmMemory = new WebAssembly.Memory({ initial: 2 });
-        
-        // Fetch and compile the WebAssembly module
-        const response = await fetch('/tinysynth.wasm');
-        const buffer = await response.arrayBuffer();
-        const wasmModule = await WebAssembly.compile(buffer);
-        
-        // Instantiate the module
-        this.wasmModule = await WebAssembly.instantiate(wasmModule, {
-          env: {
-            memory: this.wasmMemory,
-          },
-        });
-        
-        // Create AudioWorkletNode
-        this.audioWorklet = new AudioWorkletNode(this.audioContext, 'tinysynth-processor', {
-          processorOptions: {
-            wasmMemory: this.wasmMemory,
-          },
-        });
-        
-        // Connect to audio output
-        this.audioWorklet.connect(this.audioContext.destination);
-        
-        // Load soundfont (basic piano)
-        await this.loadSoundfont();
+        // Create master gain node
+        this.masterGain = this.audioContext.createGain();
+        this.masterGain.connect(this.audioContext.destination);
+        this.masterGain.gain.setValueAtTime(this.masterVolume, this.audioContext.currentTime);
         
         this.ready = true;
+        console.log('TinySynth engine initialized successfully');
         resolve();
       } catch (error) {
         console.error('Failed to initialize TinySynth engine:', error);
-        
-        // Fallback to standard Web Audio API
-        this.ready = false;
-        
-        // We resolve instead of reject to allow the app to continue with fallback
-        resolve();
+        reject(error);
       }
     });
 
     return this.loadingPromise;
   }
 
-  private async loadSoundfont(): Promise<void> {
-    if (!this.wasmModule || this.soundfontLoaded) return;
-    
-    try {
-      // Fetch the piano soundfont
-      const response = await fetch('/piano-soundfont.bin');
-      const buffer = await response.arrayBuffer();
-      
-      // Load into WASM memory
-      const loadSoundfont = (this.wasmModule.exports as any).loadSoundfont;
-      
-      if (loadSoundfont && typeof loadSoundfont === 'function') {
-        // Convert buffer to format expected by WASM
-        const view = new Uint8Array(buffer);
-        const heapAddr = (this.wasmModule.exports as any).allocate(view.length);
-        
-        // Copy data to WASM memory
-        const heap = new Uint8Array((this.wasmMemory as WebAssembly.Memory).buffer);
-        heap.set(view, heapAddr);
-        
-        // Call the loadSoundfont function
-        loadSoundfont(heapAddr, view.length);
-        this.soundfontLoaded = true;
-      }
-    } catch (error) {
-      console.error('Error loading soundfont:', error);
+  private getInstrumentConfig(program: number) {
+    // Different instrument configurations
+    switch (program) {
+      case 0: // Grand Piano
+        return {
+          harmonics: [1, 0.5, 0.25, 0.125, 0.0625],
+          attack: 0.01,
+          decay: 0.3,
+          sustain: 0.7,
+          release: 2.0,
+          waveType: 'triangle' as OscillatorType
+        };
+      case 1: // Bright Piano
+        return {
+          harmonics: [1, 0.7, 0.4, 0.2, 0.1],
+          attack: 0.005,
+          decay: 0.2,
+          sustain: 0.8,
+          release: 1.5,
+          waveType: 'triangle' as OscillatorType
+        };
+      case 4: // Electric Piano
+        return {
+          harmonics: [1, 0.3, 0.6, 0.1, 0.05],
+          attack: 0.02,
+          decay: 0.5,
+          sustain: 0.6,
+          release: 1.0,
+          waveType: 'sine' as OscillatorType
+        };
+      case 16: // Organ
+        return {
+          harmonics: [1, 0.8, 0.6, 0.4, 0.2],
+          attack: 0.1,
+          decay: 0.1,
+          sustain: 0.9,
+          release: 0.5,
+          waveType: 'sine' as OscillatorType
+        };
+      case 7: // Clavinet
+        return {
+          harmonics: [1, 0.4, 0.8, 0.2, 0.1],
+          attack: 0.001,
+          decay: 0.1,
+          sustain: 0.3,
+          release: 0.2,
+          waveType: 'sawtooth' as OscillatorType
+        };
+      case 80: // Synth Lead
+        return {
+          harmonics: [1, 0.5, 0.7, 0.3, 0.15],
+          attack: 0.05,
+          decay: 0.2,
+          sustain: 0.8,
+          release: 1.0,
+          waveType: 'square' as OscillatorType
+        };
+      default:
+        return this.getInstrumentConfig(0); // Default to Grand Piano
     }
   }
 
   public async playNote(midiNote: number, velocity = 100): Promise<void> {
     await this.ensureInitialized();
     
-    if (!this.ready || !this.wasmModule) {
+    if (!this.ready || !this.audioContext || !this.masterGain) {
       console.warn('TinySynth not ready, cannot play note');
       return;
     }
     
     try {
       // Resume audio context if it's suspended
-      if (this.audioContext && this.audioContext.state !== "running") {
+      if (this.audioContext.state !== "running") {
         await this.audioContext.resume();
       }
       
-      // Call the WASM function to play a note
-      const playNote = (this.wasmModule.exports as any).playNote;
-      if (playNote && typeof playNote === 'function') {
-        playNote(midiNote, velocity, this.currentProgram);
-      }
+      // Stop any existing note with the same MIDI number
+      this.stopNote(midiNote);
+      
+      // Get instrument configuration
+      const config = this.getInstrumentConfig(this.currentProgram);
+      
+      // Calculate frequency from MIDI note
+      const frequency = 440 * Math.pow(2, (midiNote - 69) / 12);
+      
+      // Create oscillators for harmonics
+      const oscillators: OscillatorNode[] = [];
+      const harmonicGains: GainNode[] = [];
+      
+      // Main gain node for this note
+      const noteGain = this.audioContext.createGain();
+      noteGain.connect(this.masterGain);
+      
+      // Create harmonics
+      config.harmonics.forEach((harmonic, index) => {
+        if (harmonic > 0) {
+          const osc = this.audioContext!.createOscillator();
+          const harmonicGain = this.audioContext!.createGain();
+          
+          osc.type = config.waveType;
+          osc.frequency.setValueAtTime(frequency * (index + 1), this.audioContext!.currentTime);
+          
+          // Set harmonic amplitude
+          const amplitude = harmonic * (velocity / 127) * 0.3; // Scale down overall volume
+          harmonicGain.gain.setValueAtTime(amplitude, this.audioContext!.currentTime);
+          
+          osc.connect(harmonicGain);
+          harmonicGain.connect(noteGain);
+          
+          oscillators.push(osc);
+          harmonicGains.push(harmonicGain);
+        }
+      });
+      
+      // ADSR envelope
+      const now = this.audioContext.currentTime;
+      const attackTime = config.attack;
+      const decayTime = config.decay;
+      const sustainLevel = config.sustain * (velocity / 127);
+      
+      // Attack
+      noteGain.gain.setValueAtTime(0, now);
+      noteGain.gain.linearRampToValueAtTime(velocity / 127, now + attackTime);
+      
+      // Decay to sustain
+      noteGain.gain.exponentialRampToValueAtTime(Math.max(sustainLevel, 0.001), now + attackTime + decayTime);
+      
+      // Start all oscillators
+      oscillators.forEach(osc => osc.start(now));
+      
+      // Store the note
+      const note: TinySynthNote = {
+        note: midiNote,
+        velocity,
+        oscillators,
+        gainNode: noteGain,
+        startTime: now
+      };
+      
+      this.activeNotes.set(midiNote, note);
+      
     } catch (error) {
       console.error('Error playing note:', error);
     }
   }
 
   public async stopNote(midiNote: number): Promise<void> {
-    if (!this.ready || !this.wasmModule) return;
+    if (!this.ready || !this.audioContext) return;
+    
+    const note = this.activeNotes.get(midiNote);
+    if (!note) return;
     
     try {
-      // Call the WASM function to release a note
-      const stopNote = (this.wasmModule.exports as any).stopNote;
-      if (stopNote && typeof stopNote === 'function') {
-        stopNote(midiNote, this.currentProgram);
-      }
+      const config = this.getInstrumentConfig(this.currentProgram);
+      const now = this.audioContext.currentTime;
+      const releaseTime = config.release;
+      
+      // Release envelope
+      note.gainNode.gain.cancelScheduledValues(now);
+      note.gainNode.gain.exponentialRampToValueAtTime(0.001, now + releaseTime);
+      
+      // Stop oscillators after release
+      note.oscillators.forEach(osc => {
+        osc.stop(now + releaseTime);
+      });
+      
+      // Clean up
+      setTimeout(() => {
+        this.activeNotes.delete(midiNote);
+      }, releaseTime * 1000 + 100);
+      
     } catch (error) {
       console.error('Error stopping note:', error);
     }
@@ -154,34 +235,19 @@ class TinySynthEngine {
 
   public async setProgram(program: number): Promise<void> {
     await this.ensureInitialized();
-    this.currentProgram = program; // Store program for later use
-    
-    if (!this.ready || !this.wasmModule) return;
-    
-    try {
-      // Call the WASM function to change instrument
-      const setProgram = (this.wasmModule.exports as any).setProgram;
-      if (setProgram && typeof setProgram === 'function') {
-        setProgram(program);
-      }
-    } catch (error) {
-      console.error('Error setting program:', error);
-    }
+    this.currentProgram = program;
+    console.log(`Switched to instrument program: ${program}`);
   }
 
   public async setVolume(volume: number): Promise<void> {
     await this.ensureInitialized();
     
-    if (!this.ready || !this.wasmModule) return;
+    if (!this.ready || !this.masterGain) return;
     
     try {
-      // Call the WASM function to change master volume
-      const setVolume = (this.wasmModule.exports as any).setVolume;
-      if (setVolume && typeof setVolume === 'function') {
-        // Map 0-1 to 0-127 MIDI volume range
-        const midiVolume = Math.floor(volume * 127);
-        setVolume(midiVolume);
-      }
+      this.masterVolume = Math.max(0, Math.min(1, volume));
+      const now = this.audioContext!.currentTime;
+      this.masterGain.gain.exponentialRampToValueAtTime(Math.max(this.masterVolume, 0.001), now + 0.1);
     } catch (error) {
       console.error('Error setting volume:', error);
     }
@@ -212,21 +278,20 @@ class TinySynthEngine {
   }
   
   public dispose(): void {
-    if (this.audioWorklet) {
-      this.audioWorklet.disconnect();
-      this.audioWorklet = null;
-    }
+    // Stop all active notes
+    this.activeNotes.forEach((note, midiNote) => {
+      this.stopNote(midiNote);
+    });
+    this.activeNotes.clear();
     
     if (this.audioContext) {
       this.audioContext.close().catch(console.error);
       this.audioContext = null;
     }
     
-    this.wasmModule = null;
-    this.wasmMemory = null;
+    this.masterGain = null;
     this.ready = false;
     this.loadingPromise = null;
-    this.soundfontLoaded = false;
   }
 }
 

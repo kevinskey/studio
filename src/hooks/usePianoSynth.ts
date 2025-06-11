@@ -42,6 +42,7 @@ export const usePianoSynth = (options: UsePianoSynthOptions = {}) => {
         if (isMounted) {
           setIsInitialized(true);
           setIsLoading(false);
+          console.log('Piano synthesizer initialized successfully');
         }
       } catch (err) {
         console.error('Failed to initialize piano synth:', err);
