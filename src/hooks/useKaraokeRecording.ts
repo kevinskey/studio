@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Recording, KaraokeTrack } from '@/types/karaoke';
@@ -156,11 +157,12 @@ export const useKaraokeRecording = () => {
           const trackGain = audioContext.createGain();
           trackGain.gain.value = trackVolume;
           
+          // Connect track to both recording destination AND audio output so user can hear it
           trackSourceRef.current.connect(trackGain);
-          trackGain.connect(destination);
-          trackGain.connect(audioContext.destination);
+          trackGain.connect(destination); // For recording
+          trackGain.connect(audioContext.destination); // For user to hear
           
-          console.log('Track audio mixed into recording successfully');
+          console.log('Track audio mixed into recording and connected to speakers');
         } catch (error) {
           console.error('Could not mix track audio, recording voice only:', error);
           toast.warning('Recording voice only - track audio could not be mixed');
@@ -199,14 +201,17 @@ export const useKaraokeRecording = () => {
       setMediaRecorder(recorder);
       setIsRecording(true);
       
-      if (!isPlayingTrack && trackAudioRef.current && trackLoadedRef.current) {
+      // Always start track playback when recording starts
+      if (trackAudioRef.current && trackLoadedRef.current) {
         try {
+          console.log('Starting track playback for karaoke recording');
           trackAudioRef.current.currentTime = 0;
           await trackAudioRef.current.play();
           setIsPlayingTrack(true);
-          console.log('Started track playback with recording');
+          console.log('Track playback started successfully');
         } catch (error) {
-          console.log('Could not start track playback, recording voice only');
+          console.error('Could not start track playback:', error);
+          toast.warning('Recording started but track playback failed');
         }
       }
       
