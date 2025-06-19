@@ -30,15 +30,15 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = ({
   const keyboardStyle = isMobile 
     ? {
         '--white-key-width': '14vw',
-        '--white-key-height': '35vh',
+        '--white-key-height': '50vh',
         '--black-key-width': '8vw',
-        '--black-key-height': '22vh'
+        '--black-key-height': '32vh'
       }
     : {
         '--white-key-width': '23mm',
-        '--white-key-height': '150mm',
+        '--white-key-height': '200mm',
         '--black-key-width': '10mm',
-        '--black-key-height': '90mm'
+        '--black-key-height': '120mm'
       };
 
   return (

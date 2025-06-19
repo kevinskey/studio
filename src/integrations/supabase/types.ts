@@ -220,6 +220,39 @@ export type Database = {
           },
         ]
       }
+      upload_sessions: {
+        Row: {
+          completed_files: number
+          created_at: string | null
+          failed_files: number
+          id: string
+          status: string
+          total_files: number
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          completed_files?: number
+          created_at?: string | null
+          failed_files?: number
+          id?: string
+          status?: string
+          total_files?: number
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          completed_files?: number
+          created_at?: string | null
+          failed_files?: number
+          id?: string
+          status?: string
+          total_files?: number
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_preferences: {
         Row: {
           created_at: string
