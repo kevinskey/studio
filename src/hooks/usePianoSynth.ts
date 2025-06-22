@@ -1,6 +1,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import TinySynthEngine from '../utils/tinySynthEngine';
+import { useMidiOutput } from './useMidiOutput';
 
 // Instrument IDs based on General MIDI standard
 export const INSTRUMENT_MAP = {
@@ -25,6 +26,7 @@ export const usePianoSynth = (options: UsePianoSynthOptions = {}) => {
   const [error, setError] = useState<Error | null>(null);
   const synthRef = useRef<TinySynthEngine | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const midi = useMidiOutput();
 
   // Initialize the synth engine
   useEffect(() => {
@@ -87,38 +89,39 @@ export const usePianoSynth = (options: UsePianoSynthOptions = {}) => {
     }
   };
 
-  // Function to play a note using TinySynth
+  // Function to play a note using TinySynth or MIDI
   const playNote = async (noteName: string, velocity = 100) => {
     try {
-      // Resume audio context if suspended
-      if (synthRef.current) {
-        const midiNote = TinySynthEngine.noteNameToMidi(noteName);
-        if (midiNote >= 0) {
-          await synthRef.current.playNote(midiNote, velocity);
-        }
+      const midiNote = TinySynthEngine.noteNameToMidi(noteName);
+
+      if (midi.isInitialized && midiNote >= 0) {
+        midi.sendNoteOn(midiNote, velocity);
+      } else if (synthRef.current && midiNote >= 0) {
+        await synthRef.current.playNote(midiNote, velocity);
       } else if (fallbackToOscillator && audioContextRef.current) {
-        // Fallback to oscillator
         playWithOscillator(noteName);
       }
     } catch (err) {
-      console.error('Error playing note with TinySynth:', err);
+      console.error('Error playing note:', err);
       if (fallbackToOscillator) {
         playWithOscillator(noteName);
       }
     }
   };
 
-  // Function to stop a note using TinySynth
+  // Function to stop a note
   const stopNote = async (noteName: string) => {
     try {
-      if (synthRef.current) {
-        const midiNote = TinySynthEngine.noteNameToMidi(noteName);
-        if (midiNote >= 0) {
-          await synthRef.current.stopNote(midiNote);
-        }
+      const midiNote = TinySynthEngine.noteNameToMidi(noteName);
+      if (midi.isInitialized && midiNote >= 0) {
+        midi.sendNoteOff(midiNote);
+      }
+
+      if (synthRef.current && midiNote >= 0) {
+        await synthRef.current.stopNote(midiNote);
       }
     } catch (err) {
-      console.error('Error stopping note with TinySynth:', err);
+      console.error('Error stopping note:', err);
     }
   };
 
@@ -168,24 +171,33 @@ export const usePianoSynth = (options: UsePianoSynthOptions = {}) => {
 
   // Set the instrument/program
   const setInstrument = async (instrument: SynthInstrumentType) => {
-    if (!synthRef.current) return;
-    
-    try {
-      const programNumber = INSTRUMENT_MAP[instrument];
-      await synthRef.current.setProgram(programNumber);
-    } catch (err) {
-      console.error('Error setting instrument:', err);
+    const programNumber = INSTRUMENT_MAP[instrument];
+
+    if (midi.isInitialized) {
+      midi.sendProgramChange(programNumber);
+    }
+
+    if (synthRef.current) {
+      try {
+        await synthRef.current.setProgram(programNumber);
+      } catch (err) {
+        console.error('Error setting instrument:', err);
+      }
     }
   };
 
   // Set the master volume
   const setVolume = async (volume: number) => {
-    if (!synthRef.current) return;
-    
-    try {
-      await synthRef.current.setVolume(volume);
-    } catch (err) {
-      console.error('Error setting volume:', err);
+    if (midi.isInitialized) {
+      midi.setVolume(volume);
+    }
+
+    if (synthRef.current) {
+      try {
+        await synthRef.current.setVolume(volume);
+      } catch (err) {
+        console.error('Error setting volume:', err);
+      }
     }
   };
 
@@ -199,5 +211,6 @@ export const usePianoSynth = (options: UsePianoSynthOptions = {}) => {
     isLoading,
     error,
     hasSynth: Boolean(synthRef.current),
+    hasMidi: midi.isInitialized && !midi.error,
   };
 };
