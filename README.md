@@ -1,4 +1,7 @@
-# Welcome to your Lovable project
+# Karaoke Studio
+
+
+This project is a simple web-based karaoke recording studio built with React and Vite. It features two-track karaoke recording, a basic recording studio, metronome, pitch pipe and a virtual piano.
 
 ## Project info
 
